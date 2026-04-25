@@ -21,15 +21,14 @@ export async function POST(req: NextRequest) {
   }
 
   if (event.type === 'checkout.session.completed') {
-    // Payment succeeded — set a cookie so the editor unlocks
-    const cookieStore = cookies()
-    cookieStore.set('viralchart_pro', 'true', {
-      httpOnly: true,
-      secure: true,
-      maxAge: 60 * 60 * 24 * 30, // 30 days
-      path: '/',
-    })
-  }
+  const cookieStore = await cookies()
+  cookieStore.set('viralchart_pro', 'true', {
+    httpOnly: true,
+    secure: true,
+    maxAge: 60 * 60 * 24 * 30,
+    path: '/',
+  })
+}
 
   return NextResponse.json({ received: true })
 }
