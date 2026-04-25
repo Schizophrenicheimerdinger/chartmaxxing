@@ -40,11 +40,14 @@ export default function Editor() {
   const data = useMemo(() => parseData(rawData), [rawData])
 
   // Check if user has paid (cookie set by webhook)
-  useEffect(() => {
+ useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('success') === 'true') {
+    setIsPro(true)
+  } else {
     fetch('/api/check-pro').then(r => r.json()).then(d => setIsPro(d.isPro))
-    // Also check if returning from successful checkout
-    if (window.location.search.includes('success=true')) setIsPro(true)
-  }, [])
+  }
+}, [])
 
   const props = { data, title, subtitle, yLabel, theme, showDots, showValues, ratio }
 
