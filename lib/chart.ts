@@ -9,6 +9,8 @@ export interface ChartStyle {
   lineColor: string
   dotColor: string
   glowColor: string
+  glowOpacity: number
+  glowBlur: number
   titleColor: string
   subtitleColor: string
   valueColor: string
@@ -28,11 +30,11 @@ export interface ChartStyle {
 }
 
 export const PRESETS: Record<string, { name: string; style: ChartStyle }> = {
-  chartboom: {
-    name: 'ChartBoom',
+  default: {
+    name: 'Default',
     style: {
       bgColor: '#0a0a1a', bgColor2: '#111130',
-      lineColor: '#4466ff', dotColor: '#4466ff', glowColor: '#2244ff',
+      lineColor: '#4466ff', dotColor: '#4466ff', glowColor: '#2244ff', glowOpacity: 0.35, glowBlur: 40,
       titleColor: '#ffffff', subtitleColor: '#8888aa', valueColor: '#ffffff',
       labelColor: '#8888aa', axisColor: 'rgba(255,255,255,0.15)', gridColor: 'rgba(255,255,255,0.06)',
       yLabelColor: '#4466ff',
@@ -45,7 +47,7 @@ export const PRESETS: Record<string, { name: string; style: ChartStyle }> = {
     name: 'Neon',
     style: {
       bgColor: '#06060f', bgColor2: '#0c0c20',
-      lineColor: '#7fff6e', dotColor: '#7fff6e', glowColor: '#7fff6e',
+      lineColor: '#7fff6e', dotColor: '#7fff6e', glowColor: '#7fff6e', glowOpacity: 0.35, glowBlur: 40,
       titleColor: '#ffffff', subtitleColor: '#556068', valueColor: '#ffffff',
       labelColor: '#556068', axisColor: 'rgba(255,255,255,0.12)', gridColor: 'rgba(255,255,255,0.06)',
       yLabelColor: '#7fff6e',
@@ -58,7 +60,7 @@ export const PRESETS: Record<string, { name: string; style: ChartStyle }> = {
     name: 'Inferno',
     style: {
       bgColor: '#0d0400', bgColor2: '#1c0800',
-      lineColor: '#ff6622', dotColor: '#ff6622', glowColor: '#ff4400',
+      lineColor: '#ff6622', dotColor: '#ff6622', glowColor: '#ff4400', glowOpacity: 0.35, glowBlur: 40,
       titleColor: '#ffffff', subtitleColor: '#7a5040', valueColor: '#ffffff',
       labelColor: '#7a5040', axisColor: 'rgba(255,255,255,0.12)', gridColor: 'rgba(255,255,255,0.06)',
       yLabelColor: '#ff6622',
@@ -71,7 +73,7 @@ export const PRESETS: Record<string, { name: string; style: ChartStyle }> = {
     name: 'Newspaper',
     style: {
       bgColor: '#f5f0e8', bgColor2: '#ece7d8',
-      lineColor: '#1a1a1a', dotColor: '#1a1a1a', glowColor: '#1a1a1a',
+      lineColor: '#1a1a1a', dotColor: '#1a1a1a', glowColor: '#1a1a1a', glowOpacity: 0, glowBlur: 0,
       titleColor: '#1a1a1a', subtitleColor: '#555550', valueColor: '#1a1a1a',
       labelColor: '#888880', axisColor: 'rgba(0,0,0,0.2)', gridColor: 'rgba(0,0,0,0.08)',
       yLabelColor: '#333330',
@@ -84,7 +86,7 @@ export const PRESETS: Record<string, { name: string; style: ChartStyle }> = {
     name: 'Meme',
     style: {
       bgColor: '#ffffff', bgColor2: '#f0f0f0',
-      lineColor: '#ff0066', dotColor: '#ff0066', glowColor: '#ff0066',
+      lineColor: '#ff0066', dotColor: '#ff0066', glowColor: '#ff0066', glowOpacity: 0.2, glowBlur: 20,
       titleColor: '#000000', subtitleColor: '#444444', valueColor: '#000000',
       labelColor: '#666666', axisColor: 'rgba(0,0,0,0.2)', gridColor: 'rgba(0,0,0,0.06)',
       yLabelColor: '#ff0066',
@@ -97,7 +99,7 @@ export const PRESETS: Record<string, { name: string; style: ChartStyle }> = {
     name: 'Cyber',
     style: {
       bgColor: '#000a18', bgColor2: '#000c28',
-      lineColor: '#00d4ff', dotColor: '#00d4ff', glowColor: '#00aaff',
+      lineColor: '#00d4ff', dotColor: '#00d4ff', glowColor: '#00aaff', glowOpacity: 0.35, glowBlur: 50,
       titleColor: '#ffffff', subtitleColor: '#3a6080', valueColor: '#ffffff',
       labelColor: '#3a6080', axisColor: 'rgba(255,255,255,0.12)', gridColor: 'rgba(255,255,255,0.06)',
       yLabelColor: '#ff00cc',
@@ -163,12 +165,9 @@ export function drawChart(
   const s = dims.w / 1080
 
   ctx.clearRect(0, 0, dims.w, dims.h)
-
   const bgGrad = ctx.createLinearGradient(0, 0, dims.w, dims.h)
-  bgGrad.addColorStop(0, cs.bgColor)
-  bgGrad.addColorStop(1, cs.bgColor2)
-  ctx.fillStyle = bgGrad
-  ctx.fillRect(0, 0, dims.w, dims.h)
+  bgGrad.addColorStop(0, cs.bgColor); bgGrad.addColorStop(1, cs.bgColor2)
+  ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, dims.w, dims.h)
 
   const pad = { top: 190 * s, right: 80 * s, bottom: 150 * s, left: 110 * s }
   const cW = dims.w - pad.left - pad.right
@@ -225,14 +224,18 @@ export function drawChart(
   ctx.lineTo(last.x, pad.top + cH); ctx.lineTo(pad.left, pad.top + cH); ctx.closePath()
   ctx.fillStyle = areaGrad; ctx.fill()
 
-  ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
-  ctx.strokeStyle = hexAlpha(cs.glowColor, 0.35); ctx.lineWidth = 14 * s
-  ctx.lineJoin = 'round'; ctx.lineCap = 'round'
-  ctx.shadowColor = cs.glowColor; ctx.shadowBlur = 40 * s; ctx.stroke(); ctx.shadowBlur = 0
+  // Glow line
+  if (cs.glowOpacity > 0) {
+    ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
+    ctx.strokeStyle = hexAlpha(cs.glowColor, cs.glowOpacity)
+    ctx.lineWidth = 14 * s; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
+    ctx.shadowColor = cs.glowColor; ctx.shadowBlur = cs.glowBlur * s; ctx.stroke(); ctx.shadowBlur = 0
+  }
 
+  // Crisp line
   ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
-  ctx.strokeStyle = cs.lineColor; ctx.lineWidth = 4 * s
-  ctx.shadowColor = cs.glowColor; ctx.shadowBlur = 16 * s; ctx.stroke(); ctx.shadowBlur = 0
+  ctx.strokeStyle = cs.lineColor; ctx.lineWidth = 4 * s; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
+  ctx.shadowColor = cs.glowColor; ctx.shadowBlur = (cs.glowBlur * 0.4) * s; ctx.stroke(); ctx.shadowBlur = 0
 
   if (showDots) {
     pts.filter(p => !p.partial).forEach(p => {
@@ -269,4 +272,4 @@ export function drawChart(
     ctx.fillStyle = cs.subtitleColor
     ctx.fillText(subtitle, dims.w / 2, titleY + titleLines.length * titleLineH + 4 * s)
   }
-}
+}s

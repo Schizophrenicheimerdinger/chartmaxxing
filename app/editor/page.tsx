@@ -13,53 +13,48 @@ const TEMPLATES = [
   { title: 'my sleep schedule', yLabel: 'hours of sleep', subtitle: '(send help)', data: 'Mon,7\nTue,6\nWed,5\nThu,3\nFri,1\nSat,12\nSun,10' },
 ]
 
-// Color picker component
 function ColorPicker({ value, onChange, label }: { value: string, onChange: (v: string) => void, label: string }) {
   return (
     <div className="flex items-center justify-between">
       <span className="text-xs text-gray-400">{label}</span>
-      <input
-        type="color"
-        value={value.startsWith('#') ? value : '#ffffff'}
-        onChange={e => onChange(e.target.value)}
-        className="w-8 h-8 rounded cursor-pointer border border-white/10 bg-transparent"
-      />
+      <input type="color" value={value.startsWith('#') ? value : '#ffffff'} onChange={e => onChange(e.target.value)}
+        className="w-8 h-8 rounded cursor-pointer border border-white/10 bg-transparent" />
     </div>
   )
 }
 
-// Font selector
 function FontSelect({ value, onChange, label }: { value: string, onChange: (v: string) => void, label: string }) {
   return (
     <div className="flex items-center justify-between gap-2">
       <span className="text-xs text-gray-400 shrink-0">{label}</span>
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
+      <select value={value} onChange={e => onChange(e.target.value)}
         className="text-xs bg-white/5 border border-white/10 rounded px-2 py-1 text-white focus:outline-none flex-1"
-        style={{ fontFamily: value }}
-      >
-        {FONTS.map(f => (
-          <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>
-        ))}
+        style={{ fontFamily: value }}>
+        {FONTS.map(f => <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>)}
       </select>
     </div>
   )
 }
 
-// Number input
 function NumInput({ value, onChange, label, min, max }: { value: number, onChange: (v: number) => void, label: string, min: number, max: number }) {
   return (
     <div className="flex items-center justify-between gap-2">
       <span className="text-xs text-gray-400 shrink-0">{label}</span>
-      <input
-        type="number"
-        value={value}
-        min={min}
-        max={max}
-        onChange={e => onChange(parseInt(e.target.value) || min)}
-        className="w-16 text-xs bg-white/5 border border-white/10 rounded px-2 py-1 text-white focus:outline-none text-right"
-      />
+      <input type="number" value={value} min={min} max={max} onChange={e => onChange(parseInt(e.target.value) || min)}
+        className="w-16 text-xs bg-white/5 border border-white/10 rounded px-2 py-1 text-white focus:outline-none text-right" />
+    </div>
+  )
+}
+
+function SliderInput({ value, onChange, label, min, max, step }: { value: number, onChange: (v: number) => void, label: string, min: number, max: number, step: number }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-xs text-gray-400 shrink-0">{label}</span>
+      <div className="flex items-center gap-2">
+        <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))}
+          className="w-24 accent-[#7fff6e]" />
+        <span className="text-xs text-gray-500 w-8 text-right">{value}</span>
+      </div>
     </div>
   )
 }
@@ -109,8 +104,7 @@ export default function Editor() {
     const step = () => {
       p += 0.012 * speed
       if (p >= 1) { redraw(1); setIsPlaying(false); return }
-      redraw(p)
-      rafRef.current = requestAnimationFrame(step)
+      redraw(p); rafRef.current = requestAnimationFrame(step)
     }
     rafRef.current = requestAnimationFrame(step)
   }, [redraw, speed])
@@ -129,9 +123,7 @@ export default function Editor() {
     }
     if (isRecording || !canvasRef.current) return
     setIsRecording(true); setStatusText('Recording...')
-
-    const mimeType = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']
-      .find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm'
+    const mimeType = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm'
     const stream = canvasRef.current.captureStream(60)
     const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 10_000_000 })
     const chunks: Blob[] = []
@@ -153,7 +145,6 @@ export default function Editor() {
       const a = document.createElement('a'); a.href = url; a.download = 'chartmaxxing.mp4'; a.click()
       URL.revokeObjectURL(url); setIsRecording(false); setStatusText('')
     }
-
     redraw(0)
     await new Promise(r => setTimeout(r, 400))
     recorder.start(100)
@@ -180,11 +171,10 @@ export default function Editor() {
   const updateStyle = (key: keyof ChartStyle, val: string | number) =>
     setStyle(prev => ({ ...prev, [key]: val }))
 
-  const canvasDisplay = ratio === 'portrait' ? { w: 300, h: 533 } : ratio === 'landscape' ? { w: 640, h: 360 } : { w: 480, h: 480 }
+  const canvasDisplay = ratio === 'portrait' ? { w: 300, h: 533 } : ratio === 'landscape' ? { w: 620, h: 349 } : { w: 580, h: 580 }
 
   return (
     <div className="flex flex-col h-screen bg-[#0d0d12] text-white" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-
       <header className="flex items-center justify-between px-5 py-3 border-b border-white/10 shrink-0">
         <h1 style={{ fontFamily: 'Syne, sans-serif' }} className="text-xl font-black text-[#7fff6e]">Chartmaxxing</h1>
         {!isPro && (
@@ -195,15 +185,13 @@ export default function Editor() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-
-        {/* LEFT — Data */}
+        {/* LEFT */}
         <aside className="w-64 border-r border-white/10 flex flex-col bg-[#0d0d12] overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10">
             <span className="text-xs font-semibold bg-white/10 px-3 py-1.5 rounded-md">Table</span>
             <button onClick={() => loadTemplate(TEMPLATES[Math.floor(Math.random() * TEMPLATES.length)])}
               className="ml-auto text-xs text-gray-400 hover:text-[#7fff6e] transition">Load example</button>
           </div>
-
           <div className="flex-1 overflow-y-auto">
             <div className="flex items-center px-4 py-2 border-b border-white/5 text-xs text-gray-500">
               <span className="flex-1">Label</span>
@@ -222,7 +210,6 @@ export default function Editor() {
             ))}
             <button onClick={addRow} className="w-full text-left px-4 py-2 text-xs text-gray-500 hover:text-[#7fff6e] transition">+ Add row</button>
           </div>
-
           <div className="px-4 py-2 border-t border-white/10 text-xs text-gray-600">{rows.length} rows · 1 series</div>
         </aside>
 
@@ -232,7 +219,6 @@ export default function Editor() {
             style={{ width: canvasDisplay.w, height: canvasDisplay.h }}>
             <canvas ref={canvasRef} style={{ width: '100%', height: '100%' }} />
           </div>
-
           <div className="flex items-center gap-3 bg-[#0d0d12] border border-white/10 rounded-xl px-4 py-2">
             <button onClick={() => { redraw(0); startAnimation() }}
               className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 transition text-sm">↺</button>
@@ -252,10 +238,8 @@ export default function Editor() {
           </div>
         </main>
 
-        {/* RIGHT — Settings */}
+        {/* RIGHT */}
         <aside className="w-72 border-l border-white/10 flex flex-col bg-[#0d0d12] overflow-hidden">
-
-          {/* Tabs */}
           <div className="flex border-b border-white/10 shrink-0">
             {(['format', 'colors', 'fonts'] as const).map(tab => (
               <button key={tab} onClick={() => setRightTab(tab)}
@@ -266,11 +250,8 @@ export default function Editor() {
           </div>
 
           <div className="flex-1 overflow-y-auto">
-
             {rightTab === 'format' && (
               <div className="p-4 space-y-5">
-
-                {/* Presets */}
                 <div>
                   <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">Presets</div>
                   <div className="grid grid-cols-2 gap-2">
@@ -283,7 +264,6 @@ export default function Editor() {
                   </div>
                 </div>
 
-                {/* Templates */}
                 <div>
                   <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">Templates</div>
                   <div className="space-y-1">
@@ -296,7 +276,6 @@ export default function Editor() {
                   </div>
                 </div>
 
-                {/* Format */}
                 <div>
                   <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">Format</div>
                   <div className="grid grid-cols-2 gap-2">
@@ -314,7 +293,6 @@ export default function Editor() {
                   </div>
                 </div>
 
-                {/* Text */}
                 <div>
                   <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">Text</div>
                   <div className="space-y-2">
@@ -327,7 +305,6 @@ export default function Editor() {
                   </div>
                 </div>
 
-                {/* Options */}
                 <div>
                   <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">Options</div>
                   <div className="space-y-3">
@@ -343,6 +320,8 @@ export default function Editor() {
                         </button>
                       </div>
                     ))}
+                    <SliderInput value={style.glowOpacity} onChange={v => updateStyle('glowOpacity', v)} label="Glow opacity" min={0} max={1} step={0.05} />
+                    <SliderInput value={style.glowBlur} onChange={v => updateStyle('glowBlur', v)} label="Glow blur" min={0} max={80} step={5} />
                   </div>
                 </div>
               </div>
@@ -353,19 +332,16 @@ export default function Editor() {
                 <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">Background</div>
                 <ColorPicker value={style.bgColor} onChange={v => updateStyle('bgColor', v)} label="Background top" />
                 <ColorPicker value={style.bgColor2} onChange={v => updateStyle('bgColor2', v)} label="Background bottom" />
-
                 <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mt-4 mb-1">Line & Dots</div>
                 <ColorPicker value={style.lineColor} onChange={v => updateStyle('lineColor', v)} label="Line color" />
                 <ColorPicker value={style.dotColor} onChange={v => updateStyle('dotColor', v)} label="Dot color" />
                 <ColorPicker value={style.glowColor} onChange={v => updateStyle('glowColor', v)} label="Glow color" />
-
                 <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mt-4 mb-1">Text</div>
                 <ColorPicker value={style.titleColor} onChange={v => updateStyle('titleColor', v)} label="Title" />
                 <ColorPicker value={style.subtitleColor} onChange={v => updateStyle('subtitleColor', v)} label="Subtitle" />
                 <ColorPicker value={style.valueColor} onChange={v => updateStyle('valueColor', v)} label="Values" />
                 <ColorPicker value={style.labelColor} onChange={v => updateStyle('labelColor', v)} label="Axis labels" />
                 <ColorPicker value={style.yLabelColor} onChange={v => updateStyle('yLabelColor', v)} label="Y-axis label" />
-
                 <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mt-4 mb-1">Grid & Axes</div>
                 <ColorPicker value={style.axisColor} onChange={v => updateStyle('axisColor', v)} label="Axis lines" />
                 <ColorPicker value={style.gridColor} onChange={v => updateStyle('gridColor', v)} label="Grid lines" />
@@ -380,7 +356,6 @@ export default function Editor() {
                 <FontSelect value={style.valueFont} onChange={v => updateStyle('valueFont', v)} label="Values" />
                 <FontSelect value={style.labelFont} onChange={v => updateStyle('labelFont', v)} label="Axis labels" />
                 <FontSelect value={style.yLabelFont} onChange={v => updateStyle('yLabelFont', v)} label="Y-axis label" />
-
                 <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mt-4 mb-1">Font Sizes</div>
                 <NumInput value={style.titleSize} onChange={v => updateStyle('titleSize', v)} label="Title size" min={20} max={120} />
                 <NumInput value={style.subtitleSize} onChange={v => updateStyle('subtitleSize', v)} label="Subtitle size" min={12} max={60} />
@@ -388,7 +363,6 @@ export default function Editor() {
                 <NumInput value={style.labelSize} onChange={v => updateStyle('labelSize', v)} label="Label size" min={10} max={40} />
               </div>
             )}
-
           </div>
         </aside>
       </div>
