@@ -8,6 +8,8 @@ export interface ChartStyle {
   bgColor2: string
   lineColor: string
   dotColor: string
+  tipColor: string
+  tipSize: number
   glowColor: string
   glowOpacity: number
   glowBlur: number
@@ -37,7 +39,8 @@ export const PRESETS: Record<string, { name: string; style: ChartStyle }> = {
     name: 'Default',
     style: {
       bgColor: '#0a0a0f', bgColor2: '#0a0a0f',
-      lineColor: '#4d7cff', dotColor: '#4d7cff', glowColor: '#4d7cff', glowOpacity: 0, glowBlur: 0,
+      lineColor: '#4d7cff', dotColor: '#4d7cff', tipColor: '#4d7cff', tipSize: 8,
+      glowColor: '#4d7cff', glowOpacity: 0, glowBlur: 0,
       shadowColor: '#000000', shadowOpacity: 0.6, shadowBlur: 15,
       titleColor: '#ffffff', subtitleColor: '#666680', valueColor: '#ffffff',
       labelColor: '#444458', axisColor: 'rgba(255,255,255,0.08)', gridColor: 'rgba(255,255,255,0.05)',
@@ -123,28 +126,17 @@ export function drawChart(
   const vals = data.map(d => d.value)
   const maxV = Math.max(...vals), minV = Math.min(0, ...vals), range = maxV - minV || 1
 
-  // Fixed y scale using all data
   const yS = (v: number) => pad.top + cH - ((v - minV) / range) * cH
 
-  // Progress — how many points are currently visible (fractional)
   const prog = easeInOut(Math.min(progress, 1))
   const animLen = prog * (data.length - 1)
   const full = Math.floor(animLen)
   const frac = animLen - full
-
-  // Current number of visible points (including partial)
-  const visibleCount = Math.min(full + 1 + (frac > 0 ? 1 : 0), data.length)
-  // Total span currently visible: full segments + partial
   const currentSpan = Math.max(animLen, 1)
 
-  // x scale: maps index to x position, expanding as animation progresses
-  // At any point, index 0 is at pad.left, and currentSpan fills cW
   const xS = (i: number) => pad.left + (currentSpan > 0 ? (i / currentSpan) * cW : 0)
-
-  // Final x scale (when progress = 1) — for static x labels at end
   const xSFinal = (i: number) => pad.left + (data.length > 1 ? (i / (data.length - 1)) * cW : cW / 2)
 
-  // Grid lines (y axis)
   for (let i = 0; i <= 5; i++) {
     const y = pad.top + (i / 5) * cH, v = maxV - (i / 5) * range
     ctx.strokeStyle = cs.gridColor; ctx.lineWidth = 1; ctx.setLineDash([4, 10])
@@ -156,22 +148,17 @@ export function drawChart(
     ctx.fillText(v % 1 === 0 ? String(Math.round(v)) : v.toFixed(1), pad.left - 10 * s, y + 6 * s)
   }
 
-  // Axes
   ctx.strokeStyle = cs.axisColor; ctx.lineWidth = 2
   ctx.beginPath(); ctx.moveTo(pad.left, pad.top); ctx.lineTo(pad.left, pad.top + cH); ctx.lineTo(pad.left + cW, pad.top + cH); ctx.stroke()
 
-  // X axis labels — use final positions but only show revealed ones
-  // During animation: show current label big at bottom center, others small
   const isAnimating = progress < 1
   if (isAnimating) {
-    // Show only the current x label large at the bottom center
     const currentLabel = full < data.length ? data[full].label : data[data.length - 1].label
     ctx.fillStyle = cs.titleColor
     ctx.font = `700 ${72 * s}px '${cs.labelFont}', sans-serif`
     ctx.textAlign = 'center'
     ctx.fillText(currentLabel, dims.w / 2, pad.top + cH + 90 * s)
   } else {
-    // Show all x labels at final positions
     data.forEach((d, i) => {
       ctx.fillStyle = cs.labelColor
       ctx.font = `${cs.labelSize * s}px '${cs.labelFont}', sans-serif`
@@ -180,7 +167,6 @@ export function drawChart(
     })
   }
 
-  // Y axis label
   ctx.save(); ctx.translate(30 * s, pad.top + cH / 2); ctx.rotate(-Math.PI / 2)
   ctx.fillStyle = cs.yLabelColor
   ctx.font = `bold ${cs.labelSize * s}px '${cs.yLabelFont}', sans-serif`
@@ -189,7 +175,6 @@ export function drawChart(
 
   if (data.length < 2) return
 
-  // Build animated points using expanding x scale
   const pts: { x: number; y: number; idx: number; partial?: boolean }[] = []
   for (let i = 0; i <= full; i++) {
     pts.push({ x: xS(i), y: yS(data[i].value), idx: i })
@@ -198,8 +183,7 @@ export function drawChart(
     pts.push({
       x: xS(full) + frac * (xS(full + 1) - xS(full)),
       y: yS(data[full].value) + frac * (yS(data[full + 1].value) - yS(data[full].value)),
-      idx: -1,
-      partial: true,
+      idx: -1, partial: true,
     })
   }
   if (pts.length < 2) return
@@ -207,7 +191,6 @@ export function drawChart(
 
   clearShadow(ctx)
 
-  // Area fill
   if (showAreaFill) {
     const areaGrad = ctx.createLinearGradient(0, pad.top, 0, pad.top + cH)
     areaGrad.addColorStop(0, hexAlpha(cs.lineColor, 0.2))
@@ -217,7 +200,6 @@ export function drawChart(
     ctx.fillStyle = areaGrad; ctx.fill()
   }
 
-  // Glow
   if (cs.glowOpacity > 0) {
     ctx.save()
     ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
@@ -229,7 +211,6 @@ export function drawChart(
 
   clearShadow(ctx)
 
-  // Line
   ctx.save()
   if (cs.shadowOpacity > 0) {
     ctx.shadowColor = hexAlpha(cs.shadowColor, cs.shadowOpacity)
@@ -241,14 +222,12 @@ export function drawChart(
   ctx.stroke(); ctx.restore()
 
   clearShadow(ctx)
-  // Tip circle
+
+  // Tip circle — solid single colour, adjustable size
+  const tipR = (cs.tipSize ?? 8) * s
   ctx.beginPath()
-  ctx.arc(last.x, last.y, 8 * s, 0, Math.PI * 2)
-  ctx.fillStyle = cs.lineColor
-  ctx.fill()
-  ctx.beginPath()
-  ctx.arc(last.x, last.y, 4 * s, 0, Math.PI * 2)
-  ctx.fillStyle = '#ffffff'
+  ctx.arc(last.x, last.y, tipR, 0, Math.PI * 2)
+  ctx.fillStyle = cs.tipColor ?? cs.lineColor
   ctx.fill()
 
   // Dots & values
@@ -256,8 +235,6 @@ export function drawChart(
     pts.filter(p => !p.partial).forEach(p => {
       ctx.beginPath(); ctx.arc(p.x, p.y, 6 * s, 0, Math.PI * 2)
       ctx.fillStyle = cs.dotColor; ctx.fill()
-      ctx.beginPath(); ctx.arc(p.x, p.y, 3 * s, 0, Math.PI * 2)
-      ctx.fillStyle = '#ffffff'; ctx.fill()
       if (showValues && p.idx >= 0) {
         const v = data[p.idx].value, label = v % 1 === 0 ? String(v) : v.toFixed(1)
         ctx.fillStyle = cs.valueColor
@@ -268,7 +245,6 @@ export function drawChart(
     })
   }
 
-  // Title
   clearShadow(ctx)
   ctx.font = `700 ${cs.titleSize * s}px '${cs.titleFont}', sans-serif`
   ctx.textAlign = 'center'

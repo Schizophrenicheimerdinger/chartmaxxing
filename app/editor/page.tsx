@@ -323,6 +323,7 @@ const [yLabel, setYLabel] = useState('hours of sleep')
                 <Toggle label="Show dots" value={showDots} onChange={setShowDots} />
                 <Toggle label="Show values" value={showValues} onChange={setShowValues} />
                 <Toggle label="Area fill" value={showAreaFill} onChange={setShowAreaFill} />
+                <Slider label="Tip size" value={style.tipSize ?? 8} onChange={v => updateStyle('tipSize', v)} min={4} max={30} step={1} />
                 <Toggle label="Glow" value={showGlow} onChange={setShowGlow} />
                 {showGlow && (
                   <>
@@ -349,6 +350,7 @@ const [yLabel, setYLabel] = useState('hours of sleep')
                 <SectionLabel>Line & Dots</SectionLabel>
                 <ColorRow label="Line" value={style.lineColor} onChange={v => updateStyle('lineColor', v)} />
                 <ColorRow label="Dot" value={style.dotColor} onChange={v => updateStyle('dotColor', v)} />
+                <ColorRow label="Tip dot" value={style.tipColor ?? style.lineColor} onChange={v => updateStyle('tipColor', v)} />
                 <ColorRow label="Glow" value={style.glowColor} onChange={v => updateStyle('glowColor', v)} />
                 <ColorRow label="Shadow" value={style.shadowColor} onChange={v => updateStyle('shadowColor', v)} />
                 <Divider />
