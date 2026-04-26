@@ -5,14 +5,6 @@ import { drawChart, type ChartStyle, PRESETS, FONTS } from '@/lib/chart'
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
 
-const TEMPLATES = [
-  { title: 'my motivation on Mondays', yLabel: 'will to live (%)', subtitle: '(scientists baffled)', data: 'Mon,85\nTue,60\nWed,40\nThu,22\nFri,5\nSat,95\nSun,88' },
-  { title: 'chances I reply to your text', yLabel: 'probability (%)', subtitle: "(it's not personal)", data: 'Family,18\nBoss,98\nBFF,82\nEx,1\nUnknown,0' },
-  { title: 'my bank account this month', yLabel: '$ remaining', subtitle: '(please send help)', data: 'Week 1,1240\nWeek 2,810\nWeek 3,340\nWeek 4,11' },
-  { title: 'how much I care about drama', yLabel: 'cares given', subtitle: '(trending downward)', data: 'Jan,90\nFeb,75\nMar,55\nApr,40\nMay,22\nJun,8\nJul,1' },
-  { title: 'my sleep schedule', yLabel: 'hours of sleep', subtitle: '(send help)', data: 'Mon,7\nTue,6\nWed,5\nThu,3\nFri,1\nSat,12\nSun,10' },
-]
-
 const BLUE = '#4d7cff'
 const BG = '#0c0c10'
 const SURFACE = '#111116'
@@ -100,12 +92,14 @@ const inputBase: React.CSSProperties = {
 export default function Editor() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rafRef = useRef<number | null>(null)
-  const [rows, setRows] = useState<{ label: string, value: string }[]>(
-    TEMPLATES[0].data.split('\n').map(l => ({ label: l.split(',')[0], value: l.split(',')[1] }))
-  )
-  const [title, setTitle] = useState(TEMPLATES[0].title)
-  const [subtitle, setSubtitle] = useState(TEMPLATES[0].subtitle)
-  const [yLabel, setYLabel] = useState(TEMPLATES[0].yLabel)
+  const [rows, setRows] = useState<{ label: string, value: string }[]>([
+    { label: '', value: '' },
+    { label: '', value: '' },
+    { label: '', value: '' },
+  ])
+  const [title, setTitle] = useState('Put your title here')
+  const [subtitle, setSubtitle] = useState('Insert funny engaging subtitle')
+  const [yLabel, setYLabel] = useState('Y values')
   const [style, setStyle] = useState<ChartStyle>(PRESETS.default.style)
   const [speed, setSpeed] = useState(1)
   const [ratio, setRatio] = useState<'square' | 'portrait' | 'landscape'>('square')
@@ -213,10 +207,6 @@ export default function Editor() {
     setRows(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r))
   const addRow = () => setRows(prev => [...prev, { label: '', value: '' }])
   const removeRow = (i: number) => setRows(prev => prev.filter((_, idx) => idx !== i))
-  const loadTemplate = (t: typeof TEMPLATES[0]) => {
-    setRows(t.data.split('\n').map(l => ({ label: l.split(',')[0], value: l.split(',')[1] })))
-    setTitle(t.title); setSubtitle(t.subtitle); setYLabel(t.yLabel)
-  }
   const updateStyle = (key: keyof ChartStyle, val: string | number) =>
     setStyle(prev => ({ ...prev, [key]: val }))
 
@@ -250,8 +240,6 @@ export default function Editor() {
         <div style={{ width: 240, background: SURFACE, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderBottom: `1px solid ${BORDER}` }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: '#ccc' }}>Data</span>
-            <button onClick={() => loadTemplate(TEMPLATES[Math.floor(Math.random() * TEMPLATES.length)])}
-              style={{ marginLeft: 'auto', fontSize: 11, color: MUTED, background: 'none', border: 'none', cursor: 'pointer' }}>Load example</button>
           </div>
           <div style={{ display: 'flex', padding: '6px 14px', borderBottom: `1px solid ${BORDER}`, fontSize: 11, color: '#3a3a50' }}>
             <span style={{ flex: 1 }}>Label</span>
@@ -300,21 +288,6 @@ export default function Editor() {
           <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 16px' }}>
             {rightTab === 'design' && (
               <div>
-                <SectionLabel>Templates</SectionLabel>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {TEMPLATES.map(t => (
-                    <button key={t.title} onClick={() => loadTemplate(t)} style={{
-                      textAlign: 'left', padding: '8px 10px', borderRadius: 7, border: `1px solid ${BORDER}`,
-                      background: 'rgba(255,255,255,0.02)', color: '#888', fontSize: 12, cursor: 'pointer'
-                    }}
-                      onMouseOver={e => { e.currentTarget.style.borderColor = BLUE; e.currentTarget.style.color = TEXT }}
-                      onMouseOut={e => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.color = '#888' }}>
-                      {t.title}
-                    </button>
-                  ))}
-                </div>
-
-                <Divider />
                 <SectionLabel>Format</SectionLabel>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
                   {([
