@@ -241,6 +241,15 @@ export function drawChart(
   ctx.stroke(); ctx.restore()
 
   clearShadow(ctx)
+  // Tip circle
+  ctx.beginPath()
+  ctx.arc(last.x, last.y, 8 * s, 0, Math.PI * 2)
+  ctx.fillStyle = cs.lineColor
+  ctx.fill()
+  ctx.beginPath()
+  ctx.arc(last.x, last.y, 4 * s, 0, Math.PI * 2)
+  ctx.fillStyle = '#ffffff'
+  ctx.fill()
 
   // Dots & values
   if (showDots) {
