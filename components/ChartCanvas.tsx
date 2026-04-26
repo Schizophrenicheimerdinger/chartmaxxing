@@ -11,6 +11,7 @@ interface Props {
   style: ChartStyle
   showDots: boolean
   showValues: boolean
+  showAreaFill: boolean
   canvasRef: React.RefObject<HTMLCanvasElement>
   ratio: 'square' | 'portrait' | 'landscape'
 }
