@@ -38,7 +38,7 @@ export const PRESETS: Record<string, { name: string; style: ChartStyle }> = {
     style: {
       bgColor: '#0a0a0f', bgColor2: '#0a0a0f',
       lineColor: '#4d7cff', dotColor: '#4d7cff', glowColor: '#4d7cff', glowOpacity: 0, glowBlur: 0,
-      shadowColor: '#000000', shadowOpacity: 0, shadowBlur: 0,
+      shadowColor: '#000000', shadowOpacity: 0.6, shadowBlur: 15,
       titleColor: '#ffffff', subtitleColor: '#666680', valueColor: '#ffffff',
       labelColor: '#444458', axisColor: 'rgba(255,255,255,0.08)', gridColor: 'rgba(255,255,255,0.05)',
       yLabelColor: '#666680',
