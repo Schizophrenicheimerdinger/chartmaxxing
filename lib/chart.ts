@@ -168,7 +168,7 @@ export function drawChart(
 
   ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
   ctx.strokeStyle = cs.lineColor; ctx.lineWidth = 3 * s; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
-  ctx.shadowBlur = 0; ctx.stroke()
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.stroke()
 
   if (showDots) {
     pts.filter(p => !p.partial).forEach(p => {
