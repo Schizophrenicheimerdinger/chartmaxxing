@@ -111,6 +111,7 @@ export default function Editor() {
   const [ratio, setRatio] = useState<'square' | 'portrait' | 'landscape'>('square')
   const [showDots, setShowDots] = useState(true)
   const [showValues, setShowValues] = useState(true)
+  const [showAreaFill, setShowAreaFill] = useState(true)
   const [showGlow, setShowGlow] = useState(false)
   const [showShadow, setShowShadow] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
@@ -137,7 +138,7 @@ export default function Editor() {
     shadowBlur: showShadow ? style.shadowBlur : 0,
   }), [style, showGlow, showShadow])
 
-  const chartProps = { data, title, subtitle, yLabel, showDots, showValues, ratio, style: effectiveStyle }
+  const chartProps = { data, title, subtitle, yLabel, showDots, showValues, showAreaFill, ratio, style: effectiveStyle }
 
   const redraw = useCallback((progress = 1) => {
     if (canvasRef.current) drawChart(canvasRef.current, progress, chartProps)
@@ -246,7 +247,6 @@ export default function Editor() {
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-        {/* LEFT */}
         <div style={{ width: 240, background: SURFACE, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderBottom: `1px solid ${BORDER}` }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: '#ccc' }}>Data</span>
@@ -279,14 +279,12 @@ export default function Editor() {
           </div>
         </div>
 
-        {/* CENTER */}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#08080d', overflow: 'hidden' }}>
           <div style={{ borderRadius: 10, overflow: 'hidden', boxShadow: '0 0 0 1px rgba(255,255,255,0.05), 0 20px 50px rgba(0,0,0,0.6)', width: canvasDisplay.w, height: canvasDisplay.h }}>
             <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
           </div>
         </div>
 
-        {/* RIGHT */}
         <div style={{ width: 264, background: SURFACE, borderLeft: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
           <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
             {(['design', 'colors', 'fonts'] as const).map(tab => (
@@ -300,7 +298,6 @@ export default function Editor() {
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 16px' }}>
-
             {rightTab === 'design' && (
               <div>
                 <SectionLabel>Templates</SectionLabel>
@@ -348,6 +345,7 @@ export default function Editor() {
                 <SectionLabel>Options</SectionLabel>
                 <Toggle label="Show dots" value={showDots} onChange={setShowDots} />
                 <Toggle label="Show values" value={showValues} onChange={setShowValues} />
+                <Toggle label="Area fill" value={showAreaFill} onChange={setShowAreaFill} />
                 <Toggle label="Glow" value={showGlow} onChange={setShowGlow} />
                 {showGlow && (
                   <>
@@ -355,7 +353,7 @@ export default function Editor() {
                     <Slider label="Blur" value={style.glowBlur} onChange={v => updateStyle('glowBlur', v)} min={0} max={80} step={5} />
                   </>
                 )}
-                <Toggle label="Shadow" value={showShadow} onChange={setShowShadow} />
+                <Toggle label="Line shadow" value={showShadow} onChange={setShowShadow} />
                 {showShadow && (
                   <>
                     <Slider label="Opacity" value={style.shadowOpacity} onChange={v => updateStyle('shadowOpacity', v)} min={0} max={1} step={0.05} />

@@ -97,11 +97,12 @@ export function drawChart(
     yLabel: string
     showDots: boolean
     showValues: boolean
+    showAreaFill: boolean
     ratio: 'square' | 'portrait' | 'landscape'
     style: ChartStyle
   }
 ) {
-  const { data, title, subtitle, yLabel, showDots, showValues, ratio, style: cs } = props
+  const { data, title, subtitle, yLabel, showDots, showValues, showAreaFill, ratio, style: cs } = props
   if (!data.length) return
 
   const dims = ratio === 'portrait' ? { w: 1080, h: 1920 } : ratio === 'landscape' ? { w: 1920, h: 1080 } : { w: 1080, h: 1080 }
@@ -110,9 +111,7 @@ export function drawChart(
   const ctx = canvas.getContext('2d')!
   const s = dims.w / 1080
 
-  // Always reset shadow at start
   clearShadow(ctx)
-
   ctx.clearRect(0, 0, dims.w, dims.h)
   const bgGrad = ctx.createLinearGradient(0, 0, dims.w, dims.h)
   bgGrad.addColorStop(0, cs.bgColor); bgGrad.addColorStop(1, cs.bgColor2)
@@ -168,14 +167,16 @@ export function drawChart(
   const last = pts[pts.length - 1]
 
   clearShadow(ctx)
-  const areaGrad = ctx.createLinearGradient(0, pad.top, 0, pad.top + cH)
-  areaGrad.addColorStop(0, hexAlpha(cs.lineColor, 0.2))
-  areaGrad.addColorStop(1, hexAlpha(cs.lineColor, 0.0))
-  ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
-  ctx.lineTo(last.x, pad.top + cH); ctx.lineTo(pad.left, pad.top + cH); ctx.closePath()
-  ctx.fillStyle = areaGrad; ctx.fill()
 
-  // Glow
+  if (showAreaFill) {
+    const areaGrad = ctx.createLinearGradient(0, pad.top, 0, pad.top + cH)
+    areaGrad.addColorStop(0, hexAlpha(cs.lineColor, 0.2))
+    areaGrad.addColorStop(1, hexAlpha(cs.lineColor, 0.0))
+    ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
+    ctx.lineTo(last.x, pad.top + cH); ctx.lineTo(pad.left, pad.top + cH); ctx.closePath()
+    ctx.fillStyle = areaGrad; ctx.fill()
+  }
+
   if (cs.glowOpacity > 0) {
     ctx.save()
     ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
@@ -188,7 +189,6 @@ export function drawChart(
 
   clearShadow(ctx)
 
-  // Crisp line with optional drop shadow
   ctx.save()
   if (cs.shadowOpacity > 0) {
     ctx.shadowColor = hexAlpha(cs.shadowColor, cs.shadowOpacity)
