@@ -93,13 +93,17 @@ export default function Editor() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rafRef = useRef<number | null>(null)
   const [rows, setRows] = useState<{ label: string, value: string }[]>([
-    { label: '', value: '' },
-    { label: '', value: '' },
-    { label: '', value: '' },
-  ])
-  const [title, setTitle] = useState('Put your title here')
-  const [subtitle, setSubtitle] = useState('Insert funny engaging subtitle')
-  const [yLabel, setYLabel] = useState('Y values')
+  { label: 'Mon', value: '7' },
+  { label: 'Tue', value: '6' },
+  { label: 'Wed', value: '5' },
+  { label: 'Thu', value: '3' },
+  { label: 'Fri', value: '1' },
+  { label: 'Sat', value: '12' },
+  { label: 'Sun', value: '10' },
+])
+const [title, setTitle] = useState('Put your title here')
+const [subtitle, setSubtitle] = useState('Insert funny engaging subtitle')
+const [yLabel, setYLabel] = useState('hours of sleep')
   const [style, setStyle] = useState<ChartStyle>(PRESETS.default.style)
   const [speed, setSpeed] = useState(1)
   const [ratio, setRatio] = useState<'square' | 'portrait' | 'landscape'>('square')
