@@ -1,14 +1,14 @@
 'use client'
 
 import { useEffect } from 'react'
-import { drawChart, type DataPoint } from '@/lib/chart'
+import { drawChart, type DataPoint, type ChartStyle } from '@/lib/chart'
 
 interface Props {
   data: DataPoint[]
   title: string
   subtitle: string
   yLabel: string
-  theme: string
+  style: ChartStyle
   showDots: boolean
   showValues: boolean
   canvasRef: React.RefObject<HTMLCanvasElement>
