@@ -103,7 +103,7 @@ export default function Editor() {
       await ffmpeg.writeFile('input.webm', await fetchFile(webmBlob))
       await ffmpeg.exec(['-i', 'input.webm', '-c:v', 'libx264', '-preset', 'fast', 'output.mp4'])
       const data = await ffmpeg.readFile('output.mp4')
-      const mp4Blob = new Blob([data], { type: 'video/mp4' })
+      const mp4Blob = new Blob([data instanceof Uint8Array ? data : new Uint8Array(data as ArrayBuffer)], { type: 'video/mp4' })
       const url = URL.createObjectURL(mp4Blob)
       const a = document.createElement('a')
       a.href = url

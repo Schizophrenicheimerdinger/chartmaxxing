@@ -34,6 +34,3 @@ export async function POST(req: NextRequest) {
 }
 
 // Required: tell Next.js not to parse the body (Stripe needs raw bytes)
-export const config = {
-  api: { bodyParser: false },
-}
