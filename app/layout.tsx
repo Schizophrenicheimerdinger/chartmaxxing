@@ -1,18 +1,20 @@
 import type { Metadata } from 'next'
-import { Syne } from 'next/font/google'
 import './globals.css'
 
-const syne = Syne({ subsets: ['latin'], weight: ['700', '800'] })
-
 export const metadata: Metadata = {
-  title: 'ViralChart — charts that break the internet',
+  title: 'Chartmaxxing — charts that break the internet',
   description: 'Make animated chart videos that go viral on TikTok and Instagram.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={syne.className}>{children}</body>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Bebas+Neue&family=DM+Sans:wght@400;700&family=IBM+Plex+Mono:wght@400;700&family=Inter:wght@400;700&family=Oswald:wght@400;700&family=Permanent+Marker&family=Playfair+Display:wght@400;700&family=Roboto+Mono:wght@400;700&family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+      </head>
+      <body>{children}</body>
     </html>
   )
 }
