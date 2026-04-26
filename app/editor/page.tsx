@@ -107,7 +107,7 @@ export default function Editor() {
   const [subtitle, setSubtitle] = useState(TEMPLATES[0].subtitle)
   const [yLabel, setYLabel] = useState(TEMPLATES[0].yLabel)
   const [style, setStyle] = useState<ChartStyle>(PRESETS.default.style)
-  const [speed, setSpeed] = useState(1)
+  const [speed, setSpeed] = useState(0.25)
   const [ratio, setRatio] = useState<'square' | 'portrait' | 'landscape'>('square')
   const [showDots, setShowDots] = useState(true)
   const [showValues, setShowValues] = useState(true)
@@ -240,7 +240,7 @@ export default function Editor() {
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4 }}>
           <span style={{ fontSize: 11, color: MUTED }}>{speed.toFixed(1)}×</span>
-          <input type="range" min="0.3" max="3" step="0.1" value={speed}
+          <input type="range" min="0.05" max="1" step="0.05" value={speed}
             onChange={e => setSpeed(parseFloat(e.target.value))} style={{ width: 64, accentColor: BLUE }} />
         </div>
       </div>
