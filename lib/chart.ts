@@ -33,78 +33,13 @@ export const PRESETS: Record<string, { name: string; style: ChartStyle }> = {
   default: {
     name: 'Default',
     style: {
-      bgColor: '#0a0a1a', bgColor2: '#111130',
-      lineColor: '#4466ff', dotColor: '#4466ff', glowColor: '#2244ff', glowOpacity: 0.35, glowBlur: 40,
-      titleColor: '#ffffff', subtitleColor: '#8888aa', valueColor: '#ffffff',
-      labelColor: '#8888aa', axisColor: 'rgba(255,255,255,0.15)', gridColor: 'rgba(255,255,255,0.06)',
-      yLabelColor: '#4466ff',
+      bgColor: '#0a0a0f', bgColor2: '#0a0a0f',
+      lineColor: '#4d7cff', dotColor: '#4d7cff', glowColor: '#4d7cff', glowOpacity: 0, glowBlur: 0,
+      titleColor: '#ffffff', subtitleColor: '#666680', valueColor: '#ffffff',
+      labelColor: '#444458', axisColor: 'rgba(255,255,255,0.08)', gridColor: 'rgba(255,255,255,0.05)',
+      yLabelColor: '#666680',
       titleFont: 'Inter', subtitleFont: 'Inter', valueFont: 'Inter',
       labelFont: 'Inter', yLabelFont: 'Inter',
-      titleSize: 58, subtitleSize: 25, valueSize: 24, labelSize: 19,
-    }
-  },
-  neon: {
-    name: 'Neon',
-    style: {
-      bgColor: '#06060f', bgColor2: '#0c0c20',
-      lineColor: '#7fff6e', dotColor: '#7fff6e', glowColor: '#7fff6e', glowOpacity: 0.35, glowBlur: 40,
-      titleColor: '#ffffff', subtitleColor: '#556068', valueColor: '#ffffff',
-      labelColor: '#556068', axisColor: 'rgba(255,255,255,0.12)', gridColor: 'rgba(255,255,255,0.06)',
-      yLabelColor: '#7fff6e',
-      titleFont: 'Syne', subtitleFont: 'Space Mono', valueFont: 'Space Mono',
-      labelFont: 'Space Mono', yLabelFont: 'Space Mono',
-      titleSize: 58, subtitleSize: 25, valueSize: 24, labelSize: 19,
-    }
-  },
-  inferno: {
-    name: 'Inferno',
-    style: {
-      bgColor: '#0d0400', bgColor2: '#1c0800',
-      lineColor: '#ff6622', dotColor: '#ff6622', glowColor: '#ff4400', glowOpacity: 0.35, glowBlur: 40,
-      titleColor: '#ffffff', subtitleColor: '#7a5040', valueColor: '#ffffff',
-      labelColor: '#7a5040', axisColor: 'rgba(255,255,255,0.12)', gridColor: 'rgba(255,255,255,0.06)',
-      yLabelColor: '#ff6622',
-      titleFont: 'Bebas Neue', subtitleFont: 'DM Sans', valueFont: 'DM Sans',
-      labelFont: 'DM Sans', yLabelFont: 'DM Sans',
-      titleSize: 72, subtitleSize: 28, valueSize: 26, labelSize: 20,
-    }
-  },
-  newspaper: {
-    name: 'Newspaper',
-    style: {
-      bgColor: '#f5f0e8', bgColor2: '#ece7d8',
-      lineColor: '#1a1a1a', dotColor: '#1a1a1a', glowColor: '#1a1a1a', glowOpacity: 0, glowBlur: 0,
-      titleColor: '#1a1a1a', subtitleColor: '#555550', valueColor: '#1a1a1a',
-      labelColor: '#888880', axisColor: 'rgba(0,0,0,0.2)', gridColor: 'rgba(0,0,0,0.08)',
-      yLabelColor: '#333330',
-      titleFont: 'Playfair Display', subtitleFont: 'Inter', valueFont: 'Roboto Mono',
-      labelFont: 'Inter', yLabelFont: 'Inter',
-      titleSize: 58, subtitleSize: 25, valueSize: 22, labelSize: 18,
-    }
-  },
-  meme: {
-    name: 'Meme',
-    style: {
-      bgColor: '#ffffff', bgColor2: '#f0f0f0',
-      lineColor: '#ff0066', dotColor: '#ff0066', glowColor: '#ff0066', glowOpacity: 0.2, glowBlur: 20,
-      titleColor: '#000000', subtitleColor: '#444444', valueColor: '#000000',
-      labelColor: '#666666', axisColor: 'rgba(0,0,0,0.2)', gridColor: 'rgba(0,0,0,0.06)',
-      yLabelColor: '#ff0066',
-      titleFont: 'Permanent Marker', subtitleFont: 'DM Sans', valueFont: 'DM Sans',
-      labelFont: 'DM Sans', yLabelFont: 'DM Sans',
-      titleSize: 58, subtitleSize: 25, valueSize: 22, labelSize: 18,
-    }
-  },
-  cyber: {
-    name: 'Cyber',
-    style: {
-      bgColor: '#000a18', bgColor2: '#000c28',
-      lineColor: '#00d4ff', dotColor: '#00d4ff', glowColor: '#00aaff', glowOpacity: 0.35, glowBlur: 50,
-      titleColor: '#ffffff', subtitleColor: '#3a6080', valueColor: '#ffffff',
-      labelColor: '#3a6080', axisColor: 'rgba(255,255,255,0.12)', gridColor: 'rgba(255,255,255,0.06)',
-      yLabelColor: '#ff00cc',
-      titleFont: 'Oswald', subtitleFont: 'Roboto Mono', valueFont: 'Roboto Mono',
-      labelFont: 'Roboto Mono', yLabelFont: 'Roboto Mono',
       titleSize: 58, subtitleSize: 25, valueSize: 24, labelSize: 19,
     }
   },
@@ -218,13 +153,12 @@ export function drawChart(
   const last = pts[pts.length - 1]
 
   const areaGrad = ctx.createLinearGradient(0, pad.top, 0, pad.top + cH)
-  areaGrad.addColorStop(0, hexAlpha(cs.lineColor, 0.25))
-  areaGrad.addColorStop(1, hexAlpha(cs.lineColor, 0.01))
+  areaGrad.addColorStop(0, hexAlpha(cs.lineColor, 0.2))
+  areaGrad.addColorStop(1, hexAlpha(cs.lineColor, 0.0))
   ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
   ctx.lineTo(last.x, pad.top + cH); ctx.lineTo(pad.left, pad.top + cH); ctx.closePath()
   ctx.fillStyle = areaGrad; ctx.fill()
 
-  // Glow line
   if (cs.glowOpacity > 0) {
     ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
     ctx.strokeStyle = hexAlpha(cs.glowColor, cs.glowOpacity)
@@ -232,40 +166,33 @@ export function drawChart(
     ctx.shadowColor = cs.glowColor; ctx.shadowBlur = cs.glowBlur * s; ctx.stroke(); ctx.shadowBlur = 0
   }
 
-  // Crisp line
   ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
-  ctx.strokeStyle = cs.lineColor; ctx.lineWidth = 4 * s; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
-  ctx.shadowColor = cs.glowColor; ctx.shadowBlur = (cs.glowBlur * 0.4) * s; ctx.stroke(); ctx.shadowBlur = 0
+  ctx.strokeStyle = cs.lineColor; ctx.lineWidth = 3 * s; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
+  ctx.shadowBlur = 0; ctx.stroke()
 
   if (showDots) {
     pts.filter(p => !p.partial).forEach(p => {
-      ctx.beginPath(); ctx.arc(p.x, p.y, 14 * s, 0, Math.PI * 2)
-      ctx.fillStyle = hexAlpha(cs.dotColor, 0.18); ctx.fill()
-      ctx.shadowColor = cs.glowColor; ctx.shadowBlur = 20 * s
-      ctx.beginPath(); ctx.arc(p.x, p.y, 7 * s, 0, Math.PI * 2)
-      ctx.fillStyle = cs.dotColor; ctx.fill(); ctx.shadowBlur = 0
+      ctx.beginPath(); ctx.arc(p.x, p.y, 6 * s, 0, Math.PI * 2)
+      ctx.fillStyle = cs.dotColor; ctx.fill()
       ctx.beginPath(); ctx.arc(p.x, p.y, 3 * s, 0, Math.PI * 2)
       ctx.fillStyle = '#ffffff'; ctx.fill()
       if (showValues && p.idx >= 0) {
         const v = data[p.idx].value, label = v % 1 === 0 ? String(v) : v.toFixed(1)
         ctx.fillStyle = cs.valueColor
-        ctx.font = `bold ${cs.valueSize * s}px '${cs.valueFont}', sans-serif`
+        ctx.font = `600 ${cs.valueSize * s}px '${cs.valueFont}', sans-serif`
         ctx.textAlign = 'center'
-        ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 6
-        ctx.fillText(label, p.x, p.y - 20 * s); ctx.shadowBlur = 0
+        ctx.fillText(label, p.x, p.y - 18 * s)
       }
     })
   }
 
-  ctx.font = `800 ${cs.titleSize * s}px '${cs.titleFont}', sans-serif`
+  ctx.font = `700 ${cs.titleSize * s}px '${cs.titleFont}', sans-serif`
   ctx.textAlign = 'center'
   const titleLines = wrapText(ctx, title, dims.w - 80 * s)
   const titleLineH = (cs.titleSize + 8) * s
   const titleY = pad.top * 0.32
-  ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = 20
   ctx.fillStyle = cs.titleColor
   titleLines.forEach((line, i) => ctx.fillText(line, dims.w / 2, titleY + i * titleLineH))
-  ctx.shadowBlur = 0
 
   if (subtitle) {
     ctx.font = `${cs.subtitleSize * s}px '${cs.subtitleFont}', sans-serif`
