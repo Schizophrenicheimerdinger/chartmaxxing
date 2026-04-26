@@ -2,6 +2,8 @@
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { drawChart, type DataPoint } from '@/components/ChartCanvas'
+import { FFmpeg } from '@ffmpeg/ffmpeg'
+import { fetchFile, toBlobURL } from '@ffmpeg/util'
 
 const TEMPLATES = [
   { title: 'my motivation on Mondays', yLabel: 'will to live (%)', subtitle: '(scientists baffled)', data: 'Mon,85\nTue,60\nWed,40\nThu,22\nFri,5\nSat,95\nSun,88' },
@@ -35,19 +37,19 @@ export default function Editor() {
   const [showDots, setShowDots] = useState(true)
   const [showValues, setShowValues] = useState(true)
   const [isRecording, setIsRecording] = useState(false)
+  const [statusText, setStatusText] = useState('')
   const [isPro, setIsPro] = useState(false)
 
   const data = useMemo(() => parseData(rawData), [rawData])
 
-  // Check if user has paid (cookie set by webhook)
- useEffect(() => {
-  const params = new URLSearchParams(window.location.search)
-  if (params.get('success') === 'true') {
-    setIsPro(true)
-  } else {
-    fetch('/api/check-pro').then(r => r.json()).then(d => setIsPro(d.isPro))
-  }
-}, [])
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('success') === 'true') {
+      setIsPro(true)
+    } else {
+      fetch('/api/check-pro').then(r => r.json()).then(d => setIsPro(d.isPro))
+    }
+  }, [])
 
   const props = { data, title, subtitle, yLabel, theme, showDots, showValues, ratio }
 
@@ -71,7 +73,6 @@ export default function Editor() {
 
   const handleExport = useCallback(async () => {
     if (!isPro) {
-      // Send to Stripe checkout
       const res = await fetch('/api/checkout', { method: 'POST' })
       const { url } = await res.json()
       window.location.href = url
@@ -80,6 +81,7 @@ export default function Editor() {
 
     if (isRecording || !canvasRef.current) return
     setIsRecording(true)
+    setStatusText('Recording...')
 
     const mimeType = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']
       .find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm'
@@ -89,15 +91,27 @@ export default function Editor() {
     const chunks: Blob[] = []
 
     recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: mimeType })
-      const url = URL.createObjectURL(blob)
+    recorder.onstop = async () => {
+      setStatusText('Converting to MP4...')
+      const webmBlob = new Blob(chunks, { type: mimeType })
+      const ffmpeg = new FFmpeg()
+      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
+      await ffmpeg.load({
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+      })
+      await ffmpeg.writeFile('input.webm', await fetchFile(webmBlob))
+      await ffmpeg.exec(['-i', 'input.webm', '-c:v', 'libx264', '-preset', 'fast', 'output.mp4'])
+      const data = await ffmpeg.readFile('output.mp4')
+      const mp4Blob = new Blob([data], { type: 'video/mp4' })
+      const url = URL.createObjectURL(mp4Blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = 'viralchart.webm'
+      a.download = 'chartmaxxing.mp4'
       a.click()
       URL.revokeObjectURL(url)
       setIsRecording(false)
+      setStatusText('')
     }
 
     redraw(0)
@@ -123,14 +137,12 @@ export default function Editor() {
 
   return (
     <div className="flex h-screen bg-[#07070f] text-white overflow-hidden">
-      {/* Sidebar */}
       <aside className="w-80 border-r border-white/10 flex flex-col bg-[#0f0f1a] overflow-hidden">
         <div className="p-4 border-b border-white/10">
-          <h1 className="text-xl font-black text-[#7fff6e]">ViralChart</h1>
+          <h1 className="text-xl font-black text-[#7fff6e]">Chartmaxxing</h1>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-5">
-          {/* Templates */}
           <div>
             <label className="text-xs tracking-widest text-gray-500 uppercase">Templates</label>
             <div className="grid grid-cols-2 gap-2 mt-2">
@@ -146,7 +158,6 @@ export default function Editor() {
             </div>
           </div>
 
-          {/* Data */}
           <div>
             <label className="text-xs tracking-widest text-gray-500 uppercase">Data (label, value)</label>
             <textarea
@@ -156,7 +167,6 @@ export default function Editor() {
             />
           </div>
 
-          {/* Text fields */}
           {[
             { label: 'Chart title', value: title, set: setTitle },
             { label: 'Subtitle', value: subtitle, set: setSubtitle },
@@ -172,7 +182,6 @@ export default function Editor() {
             </div>
           ))}
 
-          {/* Themes */}
           <div>
             <label className="text-xs tracking-widest text-gray-500 uppercase">Theme</label>
             <div className="flex gap-2 mt-3 flex-wrap">
@@ -188,7 +197,6 @@ export default function Editor() {
             </div>
           </div>
 
-          {/* Speed */}
           <div>
             <label className="text-xs tracking-widest text-gray-500 uppercase">Speed: {speed.toFixed(1)}x</label>
             <input type="range" min="0.3" max="3" step="0.1" value={speed}
@@ -197,7 +205,6 @@ export default function Editor() {
             />
           </div>
 
-          {/* Toggles */}
           {[
             { label: 'Show dots', val: showDots, set: setShowDots },
             { label: 'Show values', val: showValues, set: setShowValues },
@@ -214,7 +221,6 @@ export default function Editor() {
           ))}
         </div>
 
-        {/* Action buttons */}
         <div className="p-4 border-t border-white/10 space-y-2">
           <button onClick={startAnimation}
             className="w-full py-3 border border-white/10 rounded-xl text-sm font-bold hover:border-[#7fff6e] hover:text-[#7fff6e] transition">
@@ -222,12 +228,11 @@ export default function Editor() {
           </button>
           <button onClick={handleExport} disabled={isRecording}
             className="w-full py-3 bg-[#7fff6e] text-black rounded-xl text-sm font-bold hover:bg-[#b4ff3a] transition disabled:opacity-50">
-            {isRecording ? '⏺ Recording...' : isPro ? '⬇ Download video' : '⚡ Go Pro — $4.99/mo'}
+            {isRecording ? `⏺ ${statusText}` : isPro ? '⬇ Download MP4' : '⚡ Go Pro — $4.99/mo'}
           </button>
         </div>
       </aside>
 
-      {/* Canvas area */}
       <main className="flex-1 flex flex-col items-center justify-center gap-4 p-8">
         <div className="border border-white/10 rounded-xl overflow-hidden shadow-2xl"
           style={{ width: ratio === 'landscape' ? 640 : ratio === 'portrait' ? 270 : 480,
@@ -235,7 +240,6 @@ export default function Editor() {
           <canvas ref={canvasRef} style={{ width: '100%', height: '100%' }} />
         </div>
 
-        {/* Ratio picker */}
         <div className="flex gap-2">
           {(['square','portrait','landscape'] as const).map(r => (
             <button key={r} onClick={() => setRatio(r)}
