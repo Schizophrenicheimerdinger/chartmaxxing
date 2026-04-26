@@ -11,6 +11,9 @@ export interface ChartStyle {
   glowColor: string
   glowOpacity: number
   glowBlur: number
+  shadowColor: string
+  shadowOpacity: number
+  shadowBlur: number
   titleColor: string
   subtitleColor: string
   valueColor: string
@@ -35,6 +38,7 @@ export const PRESETS: Record<string, { name: string; style: ChartStyle }> = {
     style: {
       bgColor: '#0a0a0f', bgColor2: '#0a0a0f',
       lineColor: '#4d7cff', dotColor: '#4d7cff', glowColor: '#4d7cff', glowOpacity: 0, glowBlur: 0,
+      shadowColor: '#000000', shadowOpacity: 0, shadowBlur: 0,
       titleColor: '#ffffff', subtitleColor: '#666680', valueColor: '#ffffff',
       labelColor: '#444458', axisColor: 'rgba(255,255,255,0.08)', gridColor: 'rgba(255,255,255,0.05)',
       yLabelColor: '#666680',
@@ -159,16 +163,25 @@ export function drawChart(
   ctx.lineTo(last.x, pad.top + cH); ctx.lineTo(pad.left, pad.top + cH); ctx.closePath()
   ctx.fillStyle = areaGrad; ctx.fill()
 
+  // Glow (wide halo)
   if (cs.glowOpacity > 0) {
     ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
     ctx.strokeStyle = hexAlpha(cs.glowColor, cs.glowOpacity)
     ctx.lineWidth = 14 * s; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
-    ctx.shadowColor = cs.glowColor; ctx.shadowBlur = cs.glowBlur * s; ctx.stroke(); ctx.shadowBlur = 0
+    ctx.shadowColor = cs.glowColor; ctx.shadowBlur = cs.glowBlur * s; ctx.stroke()
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
   }
 
+  // Crisp line (with optional drop shadow)
   ctx.save()
-  ctx.shadowColor = 'transparent'
-  ctx.shadowBlur = 0
+  if (cs.shadowOpacity > 0) {
+    ctx.shadowColor = hexAlpha(cs.shadowColor, cs.shadowOpacity)
+    ctx.shadowBlur = cs.shadowBlur * s
+    ctx.shadowOffsetY = 4 * s
+  } else {
+    ctx.shadowColor = 'transparent'
+    ctx.shadowBlur = 0
+  }
   ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
   ctx.strokeStyle = cs.lineColor; ctx.lineWidth = 3 * s; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
   ctx.stroke()
@@ -176,10 +189,13 @@ export function drawChart(
 
   if (showDots) {
     pts.filter(p => !p.partial).forEach(p => {
+      ctx.save()
+      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
       ctx.beginPath(); ctx.arc(p.x, p.y, 6 * s, 0, Math.PI * 2)
       ctx.fillStyle = cs.dotColor; ctx.fill()
       ctx.beginPath(); ctx.arc(p.x, p.y, 3 * s, 0, Math.PI * 2)
       ctx.fillStyle = '#ffffff'; ctx.fill()
+      ctx.restore()
       if (showValues && p.idx >= 0) {
         const v = data[p.idx].value, label = v % 1 === 0 ? String(v) : v.toFixed(1)
         ctx.fillStyle = cs.valueColor
@@ -190,6 +206,8 @@ export function drawChart(
     })
   }
 
+  ctx.save()
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
   ctx.font = `700 ${cs.titleSize * s}px '${cs.titleFont}', sans-serif`
   ctx.textAlign = 'center'
   const titleLines = wrapText(ctx, title, dims.w - 80 * s)
@@ -203,4 +221,5 @@ export function drawChart(
     ctx.fillStyle = cs.subtitleColor
     ctx.fillText(subtitle, dims.w / 2, titleY + titleLines.length * titleLineH + 4 * s)
   }
+  ctx.restore()
 }

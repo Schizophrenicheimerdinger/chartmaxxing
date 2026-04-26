@@ -28,10 +28,7 @@ function Toggle({ label, value, onChange }: { label: string, value: boolean, onC
         width: 36, height: 20, borderRadius: 10, border: 'none', cursor: 'pointer', position: 'relative', flexShrink: 0,
         background: value ? BLUE : 'rgba(255,255,255,0.1)', transition: 'background 0.2s'
       }}>
-        <span style={{
-          position: 'absolute', top: 2, left: value ? 18 : 2, width: 16, height: 16,
-          borderRadius: '50%', background: 'white', transition: 'left 0.2s', display: 'block'
-        }} />
+        <span style={{ position: 'absolute', top: 2, left: value ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: 'white', transition: 'left 0.2s', display: 'block' }} />
       </button>
     </div>
   )
@@ -98,7 +95,6 @@ function Divider() {
 const inputBase: React.CSSProperties = {
   width: '100%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`,
   borderRadius: 8, padding: '9px 12px', color: TEXT, fontSize: 13, outline: 'none', boxSizing: 'border-box',
-  transition: 'border-color 0.15s'
 }
 
 export default function Editor() {
@@ -116,6 +112,7 @@ export default function Editor() {
   const [showDots, setShowDots] = useState(true)
   const [showValues, setShowValues] = useState(true)
   const [showGlow, setShowGlow] = useState(false)
+  const [showShadow, setShowShadow] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [statusText, setStatusText] = useState('')
@@ -136,7 +133,9 @@ export default function Editor() {
     ...style,
     glowOpacity: showGlow ? style.glowOpacity : 0,
     glowBlur: showGlow ? style.glowBlur : 0,
-  }), [style, showGlow])
+    shadowOpacity: showShadow ? style.shadowOpacity : 0,
+    shadowBlur: showShadow ? style.shadowBlur : 0,
+  }), [style, showGlow, showShadow])
 
   const chartProps = { data, title, subtitle, yLabel, showDots, showValues, ratio, style: effectiveStyle }
 
@@ -225,25 +224,19 @@ export default function Editor() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif', fontSize: 14 }}>
 
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', padding: '0 16px', height: 50, borderBottom: `1px solid ${BORDER}`, flexShrink: 0, gap: 10 }}>
         <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 17, fontWeight: 800, color: TEXT, marginRight: 8 }}>Chartmaxxing</span>
-
         <div style={{ flex: 1 }} />
-
         <button onClick={() => { redraw(0); startAnimation() }}
           style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, borderRadius: 7, padding: '6px 11px', color: '#aaa', fontSize: 13, cursor: 'pointer' }}>↺</button>
-
         <button onClick={isPlaying ? stopAnimation : startAnimation}
           style={{ background: BLUE, border: 'none', borderRadius: 7, padding: '6px 16px', color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
           {isPlaying ? '⏸ Pause' : '▶ Play'}
         </button>
-
         <button onClick={handleExport} disabled={isRecording}
           style={{ background: isPro ? BLUE : 'rgba(77,124,255,0.12)', border: `1px solid ${isPro ? BLUE : 'rgba(77,124,255,0.3)'}`, borderRadius: 7, padding: '6px 16px', color: isPro ? 'white' : BLUE, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: isRecording ? 0.5 : 1 }}>
           {isRecording ? `⏺ ${statusText}` : isPro ? '⬇ Export MP4' : '⚡ Go Pro — $4.99/mo'}
         </button>
-
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4 }}>
           <span style={{ fontSize: 11, color: MUTED }}>{speed.toFixed(1)}×</span>
           <input type="range" min="0.3" max="3" step="0.1" value={speed}
@@ -253,21 +246,17 @@ export default function Editor() {
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-        {/* LEFT — Data */}
+        {/* LEFT */}
         <div style={{ width: 240, background: SURFACE, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderBottom: `1px solid ${BORDER}` }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: '#ccc' }}>Data</span>
             <button onClick={() => loadTemplate(TEMPLATES[Math.floor(Math.random() * TEMPLATES.length)])}
-              style={{ marginLeft: 'auto', fontSize: 11, color: MUTED, background: 'none', border: 'none', cursor: 'pointer' }}>
-              Load example
-            </button>
+              style={{ marginLeft: 'auto', fontSize: 11, color: MUTED, background: 'none', border: 'none', cursor: 'pointer' }}>Load example</button>
           </div>
-
           <div style={{ display: 'flex', padding: '6px 14px', borderBottom: `1px solid ${BORDER}`, fontSize: 11, color: '#3a3a50' }}>
             <span style={{ flex: 1 }}>Label</span>
             <span>Value</span>
           </div>
-
           <div style={{ flex: 1, overflowY: 'auto' }}>
             {rows.map((row, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0 14px', height: 34, borderBottom: `1px solid ${BORDER}` }}>
@@ -285,7 +274,6 @@ export default function Editor() {
               + Add row
             </button>
           </div>
-
           <div style={{ padding: '7px 14px', borderTop: `1px solid ${BORDER}`, fontSize: 11, color: '#333' }}>
             {rows.length} rows · 1 series
           </div>
@@ -300,7 +288,6 @@ export default function Editor() {
 
         {/* RIGHT */}
         <div style={{ width: 264, background: SURFACE, borderLeft: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-
           <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
             {(['design', 'colors', 'fonts'] as const).map(tab => (
               <button key={tab} onClick={() => setRightTab(tab)} style={{
@@ -361,11 +348,18 @@ export default function Editor() {
                 <SectionLabel>Options</SectionLabel>
                 <Toggle label="Show dots" value={showDots} onChange={setShowDots} />
                 <Toggle label="Show values" value={showValues} onChange={setShowValues} />
-                <Toggle label="Show glow" value={showGlow} onChange={setShowGlow} />
+                <Toggle label="Glow" value={showGlow} onChange={setShowGlow} />
                 {showGlow && (
                   <>
-                    <Slider label="Glow opacity" value={style.glowOpacity} onChange={v => updateStyle('glowOpacity', v)} min={0} max={1} step={0.05} />
-                    <Slider label="Glow blur" value={style.glowBlur} onChange={v => updateStyle('glowBlur', v)} min={0} max={80} step={5} />
+                    <Slider label="Opacity" value={style.glowOpacity} onChange={v => updateStyle('glowOpacity', v)} min={0} max={1} step={0.05} />
+                    <Slider label="Blur" value={style.glowBlur} onChange={v => updateStyle('glowBlur', v)} min={0} max={80} step={5} />
+                  </>
+                )}
+                <Toggle label="Shadow" value={showShadow} onChange={setShowShadow} />
+                {showShadow && (
+                  <>
+                    <Slider label="Opacity" value={style.shadowOpacity} onChange={v => updateStyle('shadowOpacity', v)} min={0} max={1} step={0.05} />
+                    <Slider label="Blur" value={style.shadowBlur} onChange={v => updateStyle('shadowBlur', v)} min={0} max={40} step={2} />
                   </>
                 )}
               </div>
@@ -381,6 +375,7 @@ export default function Editor() {
                 <ColorRow label="Line" value={style.lineColor} onChange={v => updateStyle('lineColor', v)} />
                 <ColorRow label="Dot" value={style.dotColor} onChange={v => updateStyle('dotColor', v)} />
                 <ColorRow label="Glow" value={style.glowColor} onChange={v => updateStyle('glowColor', v)} />
+                <ColorRow label="Shadow" value={style.shadowColor} onChange={v => updateStyle('shadowColor', v)} />
                 <Divider />
                 <SectionLabel>Text</SectionLabel>
                 <ColorRow label="Title" value={style.titleColor} onChange={v => updateStyle('titleColor', v)} />
