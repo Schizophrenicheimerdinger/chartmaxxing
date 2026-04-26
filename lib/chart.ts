@@ -272,4 +272,4 @@ export function drawChart(
     ctx.fillStyle = cs.subtitleColor
     ctx.fillText(subtitle, dims.w / 2, titleY + titleLines.length * titleLineH + 4 * s)
   }
-}s
+}
