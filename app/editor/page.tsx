@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
-import { drawChart, type DataPoint, type ChartStyle, PRESETS, FONTS } from '@/lib/chart'
+import { drawChart, type ChartStyle, PRESETS, FONTS } from '@/lib/chart'
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
 
@@ -13,50 +13,88 @@ const TEMPLATES = [
   { title: 'my sleep schedule', yLabel: 'hours of sleep', subtitle: '(send help)', data: 'Mon,7\nTue,6\nWed,5\nThu,3\nFri,1\nSat,12\nSun,10' },
 ]
 
-function ColorPicker({ value, onChange, label }: { value: string, onChange: (v: string) => void, label: string }) {
+const BG = '#0a0a0f'
+const SURFACE = '#111118'
+const BORDER = 'rgba(255,255,255,0.07)'
+const ACCENT = '#7fff6e'
+
+const s = (cls: string) => cls
+
+function Label({ children }: { children: React.ReactNode }) {
+  return <p style={{ fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: '#666', fontWeight: 600, marginBottom: 8 }}>{children}</p>
+}
+
+function ColorRow({ label, value, onChange }: { label: string, value: string, onChange: (v: string) => void }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-xs text-gray-400">{label}</span>
-      <input type="color" value={value.startsWith('#') ? value : '#ffffff'} onChange={e => onChange(e.target.value)}
-        className="w-8 h-8 rounded cursor-pointer border border-white/10 bg-transparent" />
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 0' }}>
+      <span style={{ fontSize: 12, color: '#aaa' }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 11, color: '#555', fontFamily: 'monospace' }}>{value.startsWith('#') ? value : '—'}</span>
+        <input type="color" value={value.startsWith('#') ? value : '#ffffff'} onChange={e => onChange(e.target.value)}
+          style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', background: 'transparent', padding: 2 }} />
+      </div>
     </div>
   )
 }
 
-function FontSelect({ value, onChange, label }: { value: string, onChange: (v: string) => void, label: string }) {
+function Toggle({ label, value, onChange }: { label: string, value: boolean, onChange: (v: boolean) => void }) {
   return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-xs text-gray-400 shrink-0">{label}</span>
-      <select value={value} onChange={e => onChange(e.target.value)}
-        className="text-xs bg-white/5 border border-white/10 rounded px-2 py-1 text-white focus:outline-none flex-1"
-        style={{ fontFamily: value }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
+      <span style={{ fontSize: 12, color: '#aaa' }}>{label}</span>
+      <button onClick={() => onChange(!value)} style={{
+        width: 36, height: 20, borderRadius: 10, border: 'none', cursor: 'pointer', position: 'relative',
+        background: value ? ACCENT : 'rgba(255,255,255,0.1)', transition: 'background 0.2s'
+      }}>
+        <span style={{
+          position: 'absolute', top: 2, left: value ? 18 : 2, width: 16, height: 16,
+          borderRadius: '50%', background: 'white', transition: 'left 0.2s'
+        }} />
+      </button>
+    </div>
+  )
+}
+
+function Slider({ label, value, onChange, min, max, step, showValue = true }: {
+  label: string, value: number, onChange: (v: number) => void, min: number, max: number, step: number, showValue?: boolean
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '3px 0' }}>
+      <span style={{ fontSize: 12, color: '#aaa', flexShrink: 0 }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))}
+          style={{ width: 90, accentColor: ACCENT }} />
+        {showValue && <span style={{ fontSize: 11, color: '#555', width: 28, textAlign: 'right' }}>{value}</span>}
+      </div>
+    </div>
+  )
+}
+
+function FontPicker({ label, value, onChange }: { label: string, value: string, onChange: (v: string) => void }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '3px 0' }}>
+      <span style={{ fontSize: 12, color: '#aaa', flexShrink: 0 }}>{label}</span>
+      <select value={value} onChange={e => onChange(e.target.value)} style={{
+        fontSize: 11, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: 6, padding: '3px 6px', color: 'white', fontFamily: value, flex: 1, maxWidth: 140
+      }}>
         {FONTS.map(f => <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>)}
       </select>
     </div>
   )
 }
 
-function NumInput({ value, onChange, label, min, max }: { value: number, onChange: (v: number) => void, label: string, min: number, max: number }) {
+function NumField({ label, value, onChange, min, max }: { label: string, value: number, onChange: (v: number) => void, min: number, max: number }) {
   return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-xs text-gray-400 shrink-0">{label}</span>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '3px 0' }}>
+      <span style={{ fontSize: 12, color: '#aaa', flexShrink: 0 }}>{label}</span>
       <input type="number" value={value} min={min} max={max} onChange={e => onChange(parseInt(e.target.value) || min)}
-        className="w-16 text-xs bg-white/5 border border-white/10 rounded px-2 py-1 text-white focus:outline-none text-right" />
+        style={{ width: 56, fontSize: 12, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '3px 8px', color: 'white', textAlign: 'right' }} />
     </div>
   )
 }
 
-function SliderInput({ value, onChange, label, min, max, step }: { value: number, onChange: (v: number) => void, label: string, min: number, max: number, step: number }) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-xs text-gray-400 shrink-0">{label}</span>
-      <div className="flex items-center gap-2">
-        <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))}
-          className="w-24 accent-[#7fff6e]" />
-        <span className="text-xs text-gray-500 w-8 text-right">{value}</span>
-      </div>
-    </div>
-  )
+function Divider() {
+  return <div style={{ height: 1, background: BORDER, margin: '12px 0' }} />
 }
 
 export default function Editor() {
@@ -73,11 +111,12 @@ export default function Editor() {
   const [ratio, setRatio] = useState<'square' | 'portrait' | 'landscape'>('square')
   const [showDots, setShowDots] = useState(true)
   const [showValues, setShowValues] = useState(true)
+  const [showGlow, setShowGlow] = useState(true)
   const [isRecording, setIsRecording] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [statusText, setStatusText] = useState('')
   const [isPro, setIsPro] = useState(false)
-  const [rightTab, setRightTab] = useState<'format' | 'colors' | 'fonts'>('format')
+  const [rightTab, setRightTab] = useState<'design' | 'colors' | 'fonts'>('design')
 
   const data = useMemo(() => rows
     .map(r => ({ label: r.label, value: parseFloat(r.value) }))
@@ -89,7 +128,13 @@ export default function Editor() {
     else fetch('/api/check-pro').then(r => r.json()).then(d => setIsPro(d.isPro))
   }, [])
 
-  const chartProps = { data, title, subtitle, yLabel, showDots, showValues, ratio, style }
+  const effectiveStyle = useMemo(() => ({
+    ...style,
+    glowOpacity: showGlow ? style.glowOpacity : 0,
+    glowBlur: showGlow ? style.glowBlur : 0,
+  }), [style, showGlow])
+
+  const chartProps = { data, title, subtitle, yLabel, showDots, showValues, ratio, style: effectiveStyle }
 
   const redraw = useCallback((progress = 1) => {
     if (canvasRef.current) drawChart(canvasRef.current, progress, chartProps)
@@ -129,7 +174,7 @@ export default function Editor() {
     const chunks: Blob[] = []
     recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
     recorder.onstop = async () => {
-      setStatusText('Converting to MP4...')
+      setStatusText('Converting...')
       const webmBlob = new Blob(chunks, { type: mimeType })
       const ffmpeg = new FFmpeg()
       const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
@@ -171,200 +216,227 @@ export default function Editor() {
   const updateStyle = (key: keyof ChartStyle, val: string | number) =>
     setStyle(prev => ({ ...prev, [key]: val }))
 
-  const canvasDisplay = ratio === 'portrait' ? { w: 300, h: 533 } : ratio === 'landscape' ? { w: 620, h: 349 } : { w: 580, h: 580 }
+  const canvasDisplay = ratio === 'portrait' ? { w: 280, h: 498 } : ratio === 'landscape' ? { w: 600, h: 338 } : { w: 560, h: 560 }
+
+  const panelStyle: React.CSSProperties = {
+    background: SURFACE, borderRight: `1px solid ${BORDER}`, display: 'flex',
+    flexDirection: 'column', overflow: 'hidden', flexShrink: 0
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`,
+    borderRadius: 8, padding: '8px 12px', color: 'white', fontSize: 13, outline: 'none', boxSizing: 'border-box'
+  }
 
   return (
-    <div className="flex flex-col h-screen bg-[#0d0d12] text-white" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
-      <header className="flex items-center justify-between px-5 py-3 border-b border-white/10 shrink-0">
-        <h1 style={{ fontFamily: 'Syne, sans-serif' }} className="text-xl font-black text-[#7fff6e]">Chartmaxxing</h1>
-        {!isPro && (
-          <button onClick={handleExport} className="text-xs bg-[#7fff6e] text-black font-bold px-4 py-2 rounded-lg hover:bg-[#b4ff3a] transition">
-            ⚡ Go Pro — $4.99/mo
-          </button>
-        )}
-      </header>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: BG, color: 'white', fontFamily: 'Inter, system-ui, sans-serif' }}>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* LEFT */}
-        <aside className="w-64 border-r border-white/10 flex flex-col bg-[#0d0d12] overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10">
-            <span className="text-xs font-semibold bg-white/10 px-3 py-1.5 rounded-md">Table</span>
-            <button onClick={() => loadTemplate(TEMPLATES[Math.floor(Math.random() * TEMPLATES.length)])}
-              className="ml-auto text-xs text-gray-400 hover:text-[#7fff6e] transition">Load example</button>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 52, borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
+        <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800, color: ACCENT }}>Chartmaxxing</span>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button onClick={() => { redraw(0); startAnimation() }}
+            style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER}`, borderRadius: 8, padding: '6px 12px', color: '#aaa', fontSize: 13, cursor: 'pointer' }}>↺</button>
+          <button onClick={isPlaying ? stopAnimation : startAnimation}
+            style={{ background: ACCENT, border: 'none', borderRadius: 8, padding: '7px 18px', color: 'black', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            {isPlaying ? '⏸ Pause' : '▶ Play'}
+          </button>
+          <button onClick={handleExport} disabled={isRecording}
+            style={{ background: isPro ? ACCENT : 'rgba(127,255,110,0.1)', border: `1px solid rgba(127,255,110,0.3)`, borderRadius: 8, padding: '7px 18px', color: isPro ? 'black' : ACCENT, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: isRecording ? 0.5 : 1 }}>
+            {isRecording ? `⏺ ${statusText}` : isPro ? '⬇ Export MP4' : '⚡ Go Pro — $4.99/mo'}
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4 }}>
+            <span style={{ fontSize: 11, color: '#555' }}>{speed.toFixed(1)}×</span>
+            <input type="range" min="0.3" max="3" step="0.1" value={speed}
+              onChange={e => setSpeed(parseFloat(e.target.value))} style={{ width: 70, accentColor: ACCENT }} />
           </div>
-          <div className="flex-1 overflow-y-auto">
-            <div className="flex items-center px-4 py-2 border-b border-white/5 text-xs text-gray-500">
-              <span className="flex-1">Label</span>
-              <span className="w-20 text-right">Value</span>
-              <span className="w-5" />
-            </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+
+        {/* LEFT — Data table */}
+        <div style={{ ...panelStyle, width: 260 }}>
+          <div style={{ display: 'flex', alignItems: 'center', padding: '10px 16px', borderBottom: `1px solid ${BORDER}`, gap: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#ccc' }}>Data</span>
+            <button onClick={() => loadTemplate(TEMPLATES[Math.floor(Math.random() * TEMPLATES.length)])}
+              style={{ marginLeft: 'auto', fontSize: 11, color: '#555', background: 'none', border: 'none', cursor: 'pointer' }}
+              onMouseOver={e => (e.currentTarget.style.color = ACCENT)} onMouseOut={e => (e.currentTarget.style.color = '#555')}>
+              Load example
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', padding: '6px 16px', borderBottom: `1px solid ${BORDER}`, fontSize: 11, color: '#444' }}>
+            <span style={{ flex: 1 }}>Label</span>
+            <span style={{ width: 70, textAlign: 'right' }}>Value</span>
+            <span style={{ width: 20 }} />
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto' }}>
             {rows.map((row, i) => (
-              <div key={i} className="flex items-center px-4 py-1.5 border-b border-white/5 hover:bg-white/[0.03] group">
+              <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0 16px', borderBottom: `1px solid ${BORDER}`, height: 36 }}
+                onMouseOver={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                onMouseOut={e => (e.currentTarget.style.background = 'transparent')}>
                 <input value={row.label} onChange={e => updateRow(i, 'label', e.target.value)}
-                  className="flex-1 bg-transparent text-sm text-white focus:outline-none" placeholder="Label" />
+                  style={{ flex: 1, background: 'transparent', border: 'none', color: 'white', fontSize: 13, outline: 'none' }} placeholder="Label" />
                 <input value={row.value} onChange={e => updateRow(i, 'value', e.target.value)}
-                  className="w-20 bg-transparent text-sm text-right text-white focus:outline-none" placeholder="0" />
+                  style={{ width: 70, background: 'transparent', border: 'none', color: 'white', fontSize: 13, outline: 'none', textAlign: 'right' }} placeholder="0" />
                 <button onClick={() => removeRow(i)}
-                  className="w-5 text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition text-xs">✕</button>
+                  style={{ width: 20, background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: 12, padding: 0 }}
+                  onMouseOver={e => (e.currentTarget.style.color = '#f44')} onMouseOut={e => (e.currentTarget.style.color = '#444')}>✕</button>
               </div>
             ))}
-            <button onClick={addRow} className="w-full text-left px-4 py-2 text-xs text-gray-500 hover:text-[#7fff6e] transition">+ Add row</button>
-          </div>
-          <div className="px-4 py-2 border-t border-white/10 text-xs text-gray-600">{rows.length} rows · 1 series</div>
-        </aside>
-
-        {/* CENTER */}
-        <main className="flex-1 flex flex-col items-center justify-center bg-[#080810] gap-4 overflow-hidden">
-          <div className="rounded-xl overflow-hidden shadow-2xl border border-white/5"
-            style={{ width: canvasDisplay.w, height: canvasDisplay.h }}>
-            <canvas ref={canvasRef} style={{ width: '100%', height: '100%' }} />
-          </div>
-          <div className="flex items-center gap-3 bg-[#0d0d12] border border-white/10 rounded-xl px-4 py-2">
-            <button onClick={() => { redraw(0); startAnimation() }}
-              className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 transition text-sm">↺</button>
-            <button onClick={isPlaying ? stopAnimation : startAnimation}
-              className="flex items-center gap-2 bg-[#7fff6e] text-black font-bold text-sm px-5 py-2 rounded-lg hover:bg-[#b4ff3a] transition">
-              {isPlaying ? '⏸ Pause' : '▶ Play'}
+            <button onClick={addRow}
+              style={{ width: '100%', textAlign: 'left', padding: '8px 16px', fontSize: 12, color: '#555', background: 'none', border: 'none', cursor: 'pointer' }}
+              onMouseOver={e => (e.currentTarget.style.color = ACCENT)} onMouseOut={e => (e.currentTarget.style.color = '#555')}>
+              + Add row
             </button>
-            <button onClick={handleExport} disabled={isRecording}
-              className="flex items-center gap-2 bg-[#7fff6e]/10 border border-[#7fff6e]/30 text-[#7fff6e] font-bold text-sm px-5 py-2 rounded-lg hover:bg-[#7fff6e]/20 transition disabled:opacity-50">
-              {isRecording ? `⏺ ${statusText}` : isPro ? '⬇ Export MP4' : '🔒 Export'}
-            </button>
-            <div className="flex items-center gap-2 ml-2">
-              <span className="text-xs text-gray-500">{speed.toFixed(1)}×</span>
-              <input type="range" min="0.3" max="3" step="0.1" value={speed}
-                onChange={e => setSpeed(parseFloat(e.target.value))} className="w-20 accent-[#7fff6e]" />
-            </div>
           </div>
-        </main>
 
-        {/* RIGHT */}
-        <aside className="w-72 border-l border-white/10 flex flex-col bg-[#0d0d12] overflow-hidden">
-          <div className="flex border-b border-white/10 shrink-0">
-            {(['format', 'colors', 'fonts'] as const).map(tab => (
-              <button key={tab} onClick={() => setRightTab(tab)}
-                className={`flex-1 py-2.5 text-xs font-semibold capitalize transition ${rightTab === tab ? 'text-[#7fff6e] border-b-2 border-[#7fff6e]' : 'text-gray-500 hover:text-gray-300'}`}>
-                {tab}
-              </button>
+          <div style={{ padding: '8px 16px', borderTop: `1px solid ${BORDER}`, fontSize: 11, color: '#444' }}>
+            {rows.length} rows · 1 series
+          </div>
+        </div>
+
+        {/* CENTER — Canvas */}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#07070e', overflow: 'hidden' }}>
+          <div style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 0 0 1px rgba(255,255,255,0.06), 0 24px 60px rgba(0,0,0,0.5)', width: canvasDisplay.w, height: canvasDisplay.h }}>
+            <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+          </div>
+        </div>
+
+        {/* RIGHT — Settings */}
+        <div style={{ ...panelStyle, borderRight: 'none', borderLeft: `1px solid ${BORDER}`, width: 280 }}>
+
+          {/* Tabs */}
+          <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
+            {(['design', 'colors', 'fonts'] as const).map(tab => (
+              <button key={tab} onClick={() => setRightTab(tab)} style={{
+                flex: 1, padding: '12px 0', fontSize: 11, fontWeight: 600, textTransform: 'capitalize',
+                background: 'none', border: 'none', cursor: 'pointer', letterSpacing: 0.5,
+                color: rightTab === tab ? ACCENT : '#555',
+                borderBottom: rightTab === tab ? `2px solid ${ACCENT}` : '2px solid transparent',
+                transition: 'color 0.15s'
+              }}>{tab}</button>
             ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto">
-            {rightTab === 'format' && (
-              <div className="p-4 space-y-5">
-                <div>
-                  <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">Presets</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {Object.entries(PRESETS).map(([key, preset]) => (
-                      <button key={key} onClick={() => setStyle(preset.style)}
-                        className="text-left p-2 rounded-lg border border-white/10 hover:border-[#7fff6e] transition text-xs text-gray-300 hover:text-[#7fff6e]">
-                        {preset.name}
-                      </button>
-                    ))}
-                  </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+
+            {rightTab === 'design' && (
+              <div>
+                <Label>Presets</Label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 16 }}>
+                  {Object.entries(PRESETS).map(([key, preset]) => (
+                    <button key={key} onClick={() => setStyle(preset.style)} style={{
+                      textAlign: 'left', padding: '8px 10px', borderRadius: 8, border: `1px solid ${BORDER}`,
+                      background: 'rgba(255,255,255,0.03)', color: '#bbb', fontSize: 12, cursor: 'pointer', transition: 'all 0.15s'
+                    }}
+                      onMouseOver={e => { e.currentTarget.style.borderColor = ACCENT; e.currentTarget.style.color = ACCENT }}
+                      onMouseOut={e => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.color = '#bbb' }}>
+                      {preset.name}
+                    </button>
+                  ))}
                 </div>
 
-                <div>
-                  <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">Templates</div>
-                  <div className="space-y-1">
-                    {TEMPLATES.map(t => (
-                      <button key={t.title} onClick={() => loadTemplate(t)}
-                        className="w-full text-left p-2 rounded-lg border border-white/10 hover:border-[#7fff6e] transition text-xs text-gray-300 hover:text-[#7fff6e]">
-                        {t.title}
-                      </button>
-                    ))}
-                  </div>
+                <Divider />
+                <Label>Templates</Label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 16 }}>
+                  {TEMPLATES.map(t => (
+                    <button key={t.title} onClick={() => loadTemplate(t)} style={{
+                      textAlign: 'left', padding: '7px 10px', borderRadius: 8, border: `1px solid ${BORDER}`,
+                      background: 'rgba(255,255,255,0.02)', color: '#888', fontSize: 11, cursor: 'pointer', transition: 'all 0.15s'
+                    }}
+                      onMouseOver={e => { e.currentTarget.style.borderColor = ACCENT; e.currentTarget.style.color = ACCENT }}
+                      onMouseOut={e => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.color = '#888' }}>
+                      {t.title}
+                    </button>
+                  ))}
                 </div>
 
-                <div>
-                  <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">Format</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {([
-                      { key: 'portrait', label: '9:16', sub: 'TikTok · Reels' },
-                      { key: 'square', label: '1:1', sub: 'Square' },
-                      { key: 'landscape', label: '16:9', sub: 'YouTube · X' },
-                    ] as const).map(r => (
-                      <button key={r.key} onClick={() => setRatio(r.key)}
-                        className={`text-left p-2.5 rounded-lg border transition ${ratio === r.key ? 'border-[#7fff6e] bg-[#7fff6e]/10' : 'border-white/10 hover:border-white/20'}`}>
-                        <div className={`text-sm font-bold ${ratio === r.key ? 'text-[#7fff6e]' : 'text-white'}`}>{r.label}</div>
-                        <div className="text-xs text-gray-500">{r.sub}</div>
-                      </button>
-                    ))}
-                  </div>
+                <Divider />
+                <Label>Format</Label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 16 }}>
+                  {([
+                    { key: 'portrait', label: '9:16', sub: 'TikTok' },
+                    { key: 'square', label: '1:1', sub: 'Square' },
+                    { key: 'landscape', label: '16:9', sub: 'YouTube' },
+                  ] as const).map(r => (
+                    <button key={r.key} onClick={() => setRatio(r.key)} style={{
+                      textAlign: 'left', padding: '8px', borderRadius: 8, border: `1px solid ${ratio === r.key ? ACCENT : BORDER}`,
+                      background: ratio === r.key ? 'rgba(127,255,110,0.08)' : 'rgba(255,255,255,0.02)', cursor: 'pointer'
+                    }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: ratio === r.key ? ACCENT : 'white' }}>{r.label}</div>
+                      <div style={{ fontSize: 10, color: '#555', marginTop: 2 }}>{r.sub}</div>
+                    </button>
+                  ))}
                 </div>
 
-                <div>
-                  <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">Text</div>
-                  <div className="space-y-2">
-                    <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Chart title"
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7fff6e]" />
-                    <input value={subtitle} onChange={e => setSubtitle(e.target.value)} placeholder="Subtitle"
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-400 focus:outline-none focus:border-[#7fff6e]" />
-                    <input value={yLabel} onChange={e => setYLabel(e.target.value)} placeholder="Y-axis label"
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7fff6e]" />
-                  </div>
+                <Divider />
+                <Label>Text</Label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                  <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Chart title" style={inputStyle} />
+                  <input value={subtitle} onChange={e => setSubtitle(e.target.value)} placeholder="Subtitle" style={{ ...inputStyle, color: '#aaa' }} />
+                  <input value={yLabel} onChange={e => setYLabel(e.target.value)} placeholder="Y-axis label" style={inputStyle} />
                 </div>
 
-                <div>
-                  <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">Options</div>
-                  <div className="space-y-3">
-                    {[
-                      { label: 'Show dots', val: showDots, set: setShowDots },
-                      { label: 'Show values', val: showValues, set: setShowValues },
-                    ].map(t => (
-                      <div key={t.label} className="flex justify-between items-center">
-                        <span className="text-sm text-gray-400">{t.label}</span>
-                        <button onClick={() => t.set(!t.val)}
-                          className={`w-10 h-6 rounded-full transition-colors ${t.val ? 'bg-[#7fff6e]' : 'bg-white/10'}`}>
-                          <span className={`block w-4 h-4 bg-white rounded-full mx-1 transition-transform ${t.val ? 'translate-x-4' : ''}`} />
-                        </button>
-                      </div>
-                    ))}
-                    <SliderInput value={style.glowOpacity} onChange={v => updateStyle('glowOpacity', v)} label="Glow opacity" min={0} max={1} step={0.05} />
-                    <SliderInput value={style.glowBlur} onChange={v => updateStyle('glowBlur', v)} label="Glow blur" min={0} max={80} step={5} />
-                  </div>
-                </div>
+                <Divider />
+                <Label>Options</Label>
+                <Toggle label="Show dots" value={showDots} onChange={setShowDots} />
+                <Toggle label="Show values" value={showValues} onChange={setShowValues} />
+                <Toggle label="Show glow" value={showGlow} onChange={setShowGlow} />
+                {showGlow && (
+                  <>
+                    <Slider label="Glow opacity" value={style.glowOpacity} onChange={v => updateStyle('glowOpacity', v)} min={0} max={1} step={0.05} />
+                    <Slider label="Glow blur" value={style.glowBlur} onChange={v => updateStyle('glowBlur', v)} min={0} max={80} step={5} />
+                  </>
+                )}
               </div>
             )}
 
             {rightTab === 'colors' && (
-              <div className="p-4 space-y-3">
-                <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">Background</div>
-                <ColorPicker value={style.bgColor} onChange={v => updateStyle('bgColor', v)} label="Background top" />
-                <ColorPicker value={style.bgColor2} onChange={v => updateStyle('bgColor2', v)} label="Background bottom" />
-                <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mt-4 mb-1">Line & Dots</div>
-                <ColorPicker value={style.lineColor} onChange={v => updateStyle('lineColor', v)} label="Line color" />
-                <ColorPicker value={style.dotColor} onChange={v => updateStyle('dotColor', v)} label="Dot color" />
-                <ColorPicker value={style.glowColor} onChange={v => updateStyle('glowColor', v)} label="Glow color" />
-                <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mt-4 mb-1">Text</div>
-                <ColorPicker value={style.titleColor} onChange={v => updateStyle('titleColor', v)} label="Title" />
-                <ColorPicker value={style.subtitleColor} onChange={v => updateStyle('subtitleColor', v)} label="Subtitle" />
-                <ColorPicker value={style.valueColor} onChange={v => updateStyle('valueColor', v)} label="Values" />
-                <ColorPicker value={style.labelColor} onChange={v => updateStyle('labelColor', v)} label="Axis labels" />
-                <ColorPicker value={style.yLabelColor} onChange={v => updateStyle('yLabelColor', v)} label="Y-axis label" />
-                <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mt-4 mb-1">Grid & Axes</div>
-                <ColorPicker value={style.axisColor} onChange={v => updateStyle('axisColor', v)} label="Axis lines" />
-                <ColorPicker value={style.gridColor} onChange={v => updateStyle('gridColor', v)} label="Grid lines" />
+              <div>
+                <Label>Background</Label>
+                <ColorRow label="Top" value={style.bgColor} onChange={v => updateStyle('bgColor', v)} />
+                <ColorRow label="Bottom" value={style.bgColor2} onChange={v => updateStyle('bgColor2', v)} />
+                <Divider />
+                <Label>Line & Dots</Label>
+                <ColorRow label="Line" value={style.lineColor} onChange={v => updateStyle('lineColor', v)} />
+                <ColorRow label="Dot" value={style.dotColor} onChange={v => updateStyle('dotColor', v)} />
+                <ColorRow label="Glow" value={style.glowColor} onChange={v => updateStyle('glowColor', v)} />
+                <Divider />
+                <Label>Text</Label>
+                <ColorRow label="Title" value={style.titleColor} onChange={v => updateStyle('titleColor', v)} />
+                <ColorRow label="Subtitle" value={style.subtitleColor} onChange={v => updateStyle('subtitleColor', v)} />
+                <ColorRow label="Values" value={style.valueColor} onChange={v => updateStyle('valueColor', v)} />
+                <ColorRow label="Axis labels" value={style.labelColor} onChange={v => updateStyle('labelColor', v)} />
+                <ColorRow label="Y-axis label" value={style.yLabelColor} onChange={v => updateStyle('yLabelColor', v)} />
+                <Divider />
+                <Label>Grid & Axes</Label>
+                <ColorRow label="Axis lines" value={style.axisColor} onChange={v => updateStyle('axisColor', v)} />
+                <ColorRow label="Grid lines" value={style.gridColor} onChange={v => updateStyle('gridColor', v)} />
               </div>
             )}
 
             {rightTab === 'fonts' && (
-              <div className="p-4 space-y-3">
-                <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">Fonts</div>
-                <FontSelect value={style.titleFont} onChange={v => updateStyle('titleFont', v)} label="Title" />
-                <FontSelect value={style.subtitleFont} onChange={v => updateStyle('subtitleFont', v)} label="Subtitle" />
-                <FontSelect value={style.valueFont} onChange={v => updateStyle('valueFont', v)} label="Values" />
-                <FontSelect value={style.labelFont} onChange={v => updateStyle('labelFont', v)} label="Axis labels" />
-                <FontSelect value={style.yLabelFont} onChange={v => updateStyle('yLabelFont', v)} label="Y-axis label" />
-                <div className="text-xs font-semibold text-gray-300 uppercase tracking-wider mt-4 mb-1">Font Sizes</div>
-                <NumInput value={style.titleSize} onChange={v => updateStyle('titleSize', v)} label="Title size" min={20} max={120} />
-                <NumInput value={style.subtitleSize} onChange={v => updateStyle('subtitleSize', v)} label="Subtitle size" min={12} max={60} />
-                <NumInput value={style.valueSize} onChange={v => updateStyle('valueSize', v)} label="Value size" min={12} max={60} />
-                <NumInput value={style.labelSize} onChange={v => updateStyle('labelSize', v)} label="Label size" min={10} max={40} />
+              <div>
+                <Label>Fonts</Label>
+                <FontPicker label="Title" value={style.titleFont} onChange={v => updateStyle('titleFont', v)} />
+                <FontPicker label="Subtitle" value={style.subtitleFont} onChange={v => updateStyle('subtitleFont', v)} />
+                <FontPicker label="Values" value={style.valueFont} onChange={v => updateStyle('valueFont', v)} />
+                <FontPicker label="Axis labels" value={style.labelFont} onChange={v => updateStyle('labelFont', v)} />
+                <FontPicker label="Y-axis" value={style.yLabelFont} onChange={v => updateStyle('yLabelFont', v)} />
+                <Divider />
+                <Label>Sizes</Label>
+                <NumField label="Title" value={style.titleSize} onChange={v => updateStyle('titleSize', v)} min={20} max={120} />
+                <NumField label="Subtitle" value={style.subtitleSize} onChange={v => updateStyle('subtitleSize', v)} min={12} max={60} />
+                <NumField label="Values" value={style.valueSize} onChange={v => updateStyle('valueSize', v)} min={12} max={60} />
+                <NumField label="Labels" value={style.labelSize} onChange={v => updateStyle('labelSize', v)} min={10} max={40} />
               </div>
             )}
+
           </div>
-        </aside>
+        </div>
       </div>
     </div>
   )
