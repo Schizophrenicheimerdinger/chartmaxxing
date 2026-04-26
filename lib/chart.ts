@@ -166,9 +166,13 @@ export function drawChart(
     ctx.shadowColor = cs.glowColor; ctx.shadowBlur = cs.glowBlur * s; ctx.stroke(); ctx.shadowBlur = 0
   }
 
+  ctx.save()
+  ctx.shadowColor = 'transparent'
+  ctx.shadowBlur = 0
   ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
   ctx.strokeStyle = cs.lineColor; ctx.lineWidth = 3 * s; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
-  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.stroke()
+  ctx.stroke()
+  ctx.restore()
 
   if (showDots) {
     pts.filter(p => !p.partial).forEach(p => {
