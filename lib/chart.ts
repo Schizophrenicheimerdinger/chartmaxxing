@@ -67,6 +67,13 @@ function hexAlpha(hex: string, a: number) {
   return `rgba(${r},${g},${b},${a})`
 }
 
+function clearShadow(ctx: CanvasRenderingContext2D) {
+  ctx.shadowColor = 'transparent'
+  ctx.shadowBlur = 0
+  ctx.shadowOffsetX = 0
+  ctx.shadowOffsetY = 0
+}
+
 function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
   const words = text.split(' ')
   const lines: string[] = []
@@ -102,6 +109,9 @@ export function drawChart(
 
   const ctx = canvas.getContext('2d')!
   const s = dims.w / 1080
+
+  // Always reset shadow at start
+  clearShadow(ctx)
 
   ctx.clearRect(0, 0, dims.w, dims.h)
   const bgGrad = ctx.createLinearGradient(0, 0, dims.w, dims.h)
@@ -141,6 +151,7 @@ export function drawChart(
   ctx.fillStyle = cs.yLabelColor
   ctx.font = `bold ${cs.labelSize * s}px '${cs.yLabelFont}', sans-serif`
   ctx.textAlign = 'center'; ctx.fillText(yLabel, 0, 0); ctx.restore()
+  clearShadow(ctx)
 
   if (data.length < 2) return
 
@@ -156,6 +167,7 @@ export function drawChart(
   if (pts.length < 2) return
   const last = pts[pts.length - 1]
 
+  clearShadow(ctx)
   const areaGrad = ctx.createLinearGradient(0, pad.top, 0, pad.top + cH)
   areaGrad.addColorStop(0, hexAlpha(cs.lineColor, 0.2))
   areaGrad.addColorStop(1, hexAlpha(cs.lineColor, 0.0))
@@ -163,39 +175,39 @@ export function drawChart(
   ctx.lineTo(last.x, pad.top + cH); ctx.lineTo(pad.left, pad.top + cH); ctx.closePath()
   ctx.fillStyle = areaGrad; ctx.fill()
 
-  // Glow (wide halo)
+  // Glow
   if (cs.glowOpacity > 0) {
+    ctx.save()
     ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
     ctx.strokeStyle = hexAlpha(cs.glowColor, cs.glowOpacity)
     ctx.lineWidth = 14 * s; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
-    ctx.shadowColor = cs.glowColor; ctx.shadowBlur = cs.glowBlur * s; ctx.stroke()
-    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
+    ctx.shadowColor = cs.glowColor; ctx.shadowBlur = cs.glowBlur * s
+    ctx.stroke()
+    ctx.restore()
   }
 
-  // Crisp line (with optional drop shadow)
+  clearShadow(ctx)
+
+  // Crisp line with optional drop shadow
   ctx.save()
   if (cs.shadowOpacity > 0) {
     ctx.shadowColor = hexAlpha(cs.shadowColor, cs.shadowOpacity)
     ctx.shadowBlur = cs.shadowBlur * s
     ctx.shadowOffsetY = 4 * s
-  } else {
-    ctx.shadowColor = 'transparent'
-    ctx.shadowBlur = 0
   }
   ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
   ctx.strokeStyle = cs.lineColor; ctx.lineWidth = 3 * s; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
   ctx.stroke()
   ctx.restore()
 
+  clearShadow(ctx)
+
   if (showDots) {
     pts.filter(p => !p.partial).forEach(p => {
-      ctx.save()
-      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
       ctx.beginPath(); ctx.arc(p.x, p.y, 6 * s, 0, Math.PI * 2)
       ctx.fillStyle = cs.dotColor; ctx.fill()
       ctx.beginPath(); ctx.arc(p.x, p.y, 3 * s, 0, Math.PI * 2)
       ctx.fillStyle = '#ffffff'; ctx.fill()
-      ctx.restore()
       if (showValues && p.idx >= 0) {
         const v = data[p.idx].value, label = v % 1 === 0 ? String(v) : v.toFixed(1)
         ctx.fillStyle = cs.valueColor
@@ -206,8 +218,7 @@ export function drawChart(
     })
   }
 
-  ctx.save()
-  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
+  clearShadow(ctx)
   ctx.font = `700 ${cs.titleSize * s}px '${cs.titleFont}', sans-serif`
   ctx.textAlign = 'center'
   const titleLines = wrapText(ctx, title, dims.w - 80 * s)
@@ -221,5 +232,4 @@ export function drawChart(
     ctx.fillStyle = cs.subtitleColor
     ctx.fillText(subtitle, dims.w / 2, titleY + titleLines.length * titleLineH + 4 * s)
   }
-  ctx.restore()
 }
