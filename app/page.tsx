@@ -35,7 +35,7 @@ export default function Home() {
           }}>
             How to use
           </button>
-          <Link href="/editor" style={{
+          <Link href="/login" style={{
             background: BLUE, color: 'white', fontWeight: 600, fontSize: 13,
             padding: '7px 18px', borderRadius: 8, textDecoration: 'none'
           }}>

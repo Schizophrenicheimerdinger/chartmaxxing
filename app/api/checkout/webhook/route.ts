@@ -1,36 +1,41 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { cookies } from 'next/headers'
+import { createClient } from '@supabase/supabase-js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   const body = await req.text()
   const sig = req.headers.get('stripe-signature')!
 
   let event: Stripe.Event
-
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    )
-  } catch (err) {
-    return NextResponse.json({ error: 'Webhook signature failed' }, { status: 400 })
+    event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!)
+  } catch {
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
   if (event.type === 'checkout.session.completed') {
-  const cookieStore = await cookies()
-  cookieStore.set('viralchart_pro', 'true', {
-    httpOnly: true,
-    secure: true,
-    maxAge: 60 * 60 * 24 * 30,
-    path: '/',
-  })
-}
+    const session = event.data.object as Stripe.Checkout.Session
+    const email = session.customer_details?.email
+    if (email) {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      )
+      // Find user by email and set is_pro = true
+      const { data: authUsers } = await supabase.auth.admin.listUsers()
+      const user = authUsers?.users.find(u => u.email === email)
+      if (user) {
+        await supabase.from('users').upsert({
+          id: user.id,
+          email: user.email,
+          is_pro: true,
+          stripe_customer_id: session.customer as string,
+        }, { onConflict: 'id' })
+      }
+    }
+  }
 
   return NextResponse.json({ received: true })
 }
-
-// Required: tell Next.js not to parse the body (Stripe needs raw bytes)
