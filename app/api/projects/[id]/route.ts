@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -9,14 +10,15 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   const { data } = await supabase
     .from('projects')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .eq('user_id', user.id)
     .single()
 
   return NextResponse.json({ project: data })
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -25,7 +27,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const { data, error } = await supabase
     .from('projects')
     .update({ ...body, updated_at: new Date().toISOString() })
-    .eq('id', params.id)
+    .eq('id', id)
     .eq('user_id', user.id)
     .select()
     .single()
@@ -34,11 +36,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   return NextResponse.json({ project: data })
 }
 
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  await supabase.from('projects').delete().eq('id', params.id).eq('user_id', user.id)
+  await supabase.from('projects').delete().eq('id', id).eq('user_id', user.id)
   return NextResponse.json({ success: true })
 }
