@@ -4,6 +4,8 @@ import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { drawChart, type ChartStyle, PRESETS, FONTS } from '@/lib/chart'
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 
 const BLUE = '#4d7cff'
 const BG = '#0c0c10'
@@ -89,21 +91,26 @@ const inputBase: React.CSSProperties = {
   borderRadius: 8, padding: '9px 12px', color: TEXT, fontSize: 13, outline: 'none', boxSizing: 'border-box',
 }
 
-export default function Editor() {
+function EditorInner() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rafRef = useRef<number | null>(null)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const searchParams = useSearchParams()
+  const projectId = searchParams.get('project')
+  const router = useRouter()
+
   const [rows, setRows] = useState<{ label: string, value: string }[]>([
-  { label: 'Mon', value: '7' },
-  { label: 'Tue', value: '6' },
-  { label: 'Wed', value: '5' },
-  { label: 'Thu', value: '3' },
-  { label: 'Fri', value: '1' },
-  { label: 'Sat', value: '12' },
-  { label: 'Sun', value: '10' },
-])
-const [title, setTitle] = useState('Put your title here')
-const [subtitle, setSubtitle] = useState('Insert funny engaging subtitle')
-const [yLabel, setYLabel] = useState('hours of sleep')
+    { label: 'Mon', value: '7' },
+    { label: 'Tue', value: '6' },
+    { label: 'Wed', value: '5' },
+    { label: 'Thu', value: '3' },
+    { label: 'Fri', value: '1' },
+    { label: 'Sat', value: '12' },
+    { label: 'Sun', value: '10' },
+  ])
+  const [title, setTitle] = useState('Put your title here')
+  const [subtitle, setSubtitle] = useState('Insert funny engaging subtitle')
+  const [yLabel, setYLabel] = useState('hours of sleep')
   const [style, setStyle] = useState<ChartStyle>(PRESETS.default.style)
   const [speed, setSpeed] = useState(1)
   const [ratio, setRatio] = useState<'square' | 'portrait' | 'landscape'>('square')
@@ -117,16 +124,67 @@ const [yLabel, setYLabel] = useState('hours of sleep')
   const [statusText, setStatusText] = useState('')
   const [isPro, setIsPro] = useState(false)
   const [rightTab, setRightTab] = useState<'design' | 'colors' | 'fonts'>('design')
+  const [projectTitle, setProjectTitle] = useState('Untitled')
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/check-pro').then(r => r.json()).then(d => setIsPro(d.isPro))
+  }, [])
+
+  // Load project if ID in URL
+  useEffect(() => {
+    if (!projectId) { setLoaded(true); return }
+    fetch(`/api/projects/${projectId}`).then(r => r.json()).then(({ project }) => {
+      if (!project) { setLoaded(true); return }
+      setProjectTitle(project.title ?? 'Untitled')
+      if (project.data) {
+        const d = project.data
+        if (d.rows) setRows(d.rows)
+        if (d.title) setTitle(d.title)
+        if (d.subtitle) setSubtitle(d.subtitle)
+        if (d.yLabel) setYLabel(d.yLabel)
+      }
+      if (project.settings) {
+        const s = project.settings
+        if (s.style) setStyle(s.style)
+        if (s.ratio) setRatio(s.ratio)
+        if (s.showDots !== undefined) setShowDots(s.showDots)
+        if (s.showValues !== undefined) setShowValues(s.showValues)
+        if (s.showAreaFill !== undefined) setShowAreaFill(s.showAreaFill)
+        if (s.showGlow !== undefined) setShowGlow(s.showGlow)
+        if (s.showShadow !== undefined) setShowShadow(s.showShadow)
+        if (s.speed !== undefined) setSpeed(s.speed)
+      }
+      setLoaded(true)
+    })
+  }, [projectId])
+
+  // Auto-save
+  const saveProject = useCallback(() => {
+    if (!projectId || !loaded) return
+    setSaveStatus('saving')
+    fetch(`/api/projects/${projectId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: projectTitle,
+        data: { rows, title, subtitle, yLabel },
+        settings: { style, ratio, showDots, showValues, showAreaFill, showGlow, showShadow, speed }
+      })
+    }).then(() => setSaveStatus('saved'))
+  }, [projectId, loaded, projectTitle, rows, title, subtitle, yLabel, style, ratio, showDots, showValues, showAreaFill, showGlow, showShadow, speed])
+
+  useEffect(() => {
+    if (!loaded) return
+    setSaveStatus('unsaved')
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(saveProject, 1500)
+  }, [rows, title, subtitle, yLabel, style, ratio, showDots, showValues, showAreaFill, showGlow, showShadow, speed, projectTitle])
 
   const data = useMemo(() => rows
     .map(r => ({ label: r.label, value: parseFloat(r.value) }))
     .filter(d => !isNaN(d.value)), [rows])
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('success') === 'true') setIsPro(true)
-    else fetch('/api/check-pro').then(r => r.json()).then(d => setIsPro(d.isPro))
-  }, [])
 
   const effectiveStyle = useMemo(() => ({
     ...style,
@@ -220,7 +278,18 @@ const [yLabel, setYLabel] = useState('hours of sleep')
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif', fontSize: 14 }}>
 
       <div style={{ display: 'flex', alignItems: 'center', padding: '0 16px', height: 50, borderBottom: `1px solid ${BORDER}`, flexShrink: 0, gap: 10 }}>
-        <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 17, fontWeight: 800, color: TEXT, marginRight: 8 }}>Chartmaxxing</span>
+        <button onClick={() => router.push('/projects')} style={{
+          background: 'none', border: 'none', color: MUTED, fontSize: 13, cursor: 'pointer', padding: '0 8px 0 0'
+        }}>← Projects</button>
+        {projectId && (
+          <input value={projectTitle} onChange={e => setProjectTitle(e.target.value)}
+            style={{ background: 'transparent', border: 'none', color: TEXT, fontSize: 14, fontWeight: 600, outline: 'none', width: 180 }} />
+        )}
+        {projectId && (
+          <span style={{ fontSize: 11, color: saveStatus === 'saved' ? '#4a4' : saveStatus === 'saving' ? MUTED : '#a84' }}>
+            {saveStatus === 'saved' ? '✓ Saved' : saveStatus === 'saving' ? 'Saving...' : '● Unsaved'}
+          </span>
+        )}
         <div style={{ flex: 1 }} />
         <button onClick={() => { redraw(0); startAnimation() }}
           style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, borderRadius: 7, padding: '6px 11px', color: '#aaa', fontSize: 13, cursor: 'pointer' }}>↺</button>
@@ -240,7 +309,6 @@ const [yLabel, setYLabel] = useState('hours of sleep')
       </div>
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-
         <div style={{ width: 240, background: SURFACE, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderBottom: `1px solid ${BORDER}` }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: '#ccc' }}>Data</span>
@@ -387,5 +455,13 @@ const [yLabel, setYLabel] = useState('hours of sleep')
         </div>
       </div>
     </div>
+  )
+}
+
+export default function Editor() {
+  return (
+    <Suspense fallback={<div style={{ background: '#0c0c10', height: '100vh' }} />}>
+      <EditorInner />
+    </Suspense>
   )
 }

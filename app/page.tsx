@@ -115,7 +115,7 @@ export default function Home() {
           Turn your data into viral chart videos for TikTok, Instagram, and YouTube — in minutes.
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', alignItems: 'center' }}>
-          <Link href="/editor" style={{
+          <Link href="/projects" style={{
             background: BLUE, color: 'white', fontWeight: 700, fontSize: 16,
             padding: '14px 36px', borderRadius: 10, textDecoration: 'none'
           }}>
@@ -222,7 +222,7 @@ export default function Home() {
           Ready to go viral?
         </h2>
         <p style={{ color: MUTED, fontSize: 16, margin: '0 0 40px' }}>Start for free. Export with Pro.</p>
-        <Link href="/editor" style={{
+        <Link href="/projects" style={{
           background: BLUE, color: 'white', fontWeight: 700, fontSize: 16,
           padding: '16px 44px', borderRadius: 10, textDecoration: 'none'
         }}>
