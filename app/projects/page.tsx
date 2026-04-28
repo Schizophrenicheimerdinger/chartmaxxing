@@ -74,8 +74,8 @@ const createProject = async (chartType: string) => {
 
   const chartTypes = [
     { key: 'line', label: 'Line chart', desc: 'Trends over time', icon: '📈', available: true },
-    { key: 'bar', label: 'Bar chart', desc: 'Compare categories', icon: '📊', available: false },
-    { key: 'pie', label: 'Pie chart', desc: 'Show proportions', icon: '🥧', available: false },
+    { key: 'bar', label: 'Bar chart', desc: 'Compare categories', icon: '📊', available: true },
+    { key: 'pie', label: 'Pie chart', desc: 'Show proportions', icon: '🥧', available: true },
     { key: 'more', label: 'More coming', desc: 'Stay tuned', icon: '✨', available: false },
   ]
 
