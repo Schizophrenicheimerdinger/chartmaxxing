@@ -6,6 +6,7 @@ import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
+import DataImportModal from '@/components/DataImportModal'
 
 const BLUE = '#4d7cff'
 const BG = '#0c0c10'
@@ -130,6 +131,7 @@ function EditorInner() {
   const [playCount, setPlayCount] = useState(0)
   const [playLoading, setPlayLoading] = useState(false)
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false)
+  const [showImport, setShowImport] = useState(false)
 
   useEffect(() => {
     fetch('/api/check-pro').then(r => r.json()).then(d => {
@@ -217,10 +219,7 @@ function EditorInner() {
       const res = await fetch('/api/play', { method: 'POST' })
       const data = await res.json()
       setPlayLoading(false)
-      if (!data.allowed) {
-        setShowUpgradePrompt(true)
-        return
-      }
+      if (!data.allowed) { setShowUpgradePrompt(true); return }
       setPlayCount(data.play_count)
     }
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
@@ -298,6 +297,14 @@ function EditorInner() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif', fontSize: 14 }}>
 
+      {showImport && (
+        <DataImportModal
+          chartType="line"
+          onImport={rows => setRows(rows)}
+          onClose={() => setShowImport(false)}
+        />
+      )}
+
       {showUpgradePrompt && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 200,
@@ -347,9 +354,7 @@ function EditorInner() {
         <div style={{ flex: 1 }} />
         <button onClick={() => { redraw(0); startAnimation() }} disabled={playLoading}
           style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, borderRadius: 7, padding: '6px 11px', color: '#aaa', fontSize: 13, cursor: 'pointer' }}>↺</button>
-        <button
-          onClick={isPlaying ? stopAnimation : startAnimation}
-          disabled={playLoading}
+        <button onClick={isPlaying ? stopAnimation : startAnimation} disabled={playLoading}
           style={{ background: BLUE, border: 'none', borderRadius: 7, padding: '6px 16px', color: 'white', fontSize: 13, fontWeight: 600, cursor: playLoading ? 'default' : 'pointer', opacity: playLoading ? 0.7 : 1 }}>
           {playLoading ? '⏳ Loading...' : isPlaying ? '⏸ Pause' : `▶ Play${!isPro && playCount > 0 ? ` (${playsLeft} left)` : ''}`}
         </button>
@@ -368,6 +373,10 @@ function EditorInner() {
         <div style={{ width: 240, background: SURFACE, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderBottom: `1px solid ${BORDER}` }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: '#ccc' }}>Data</span>
+            <button onClick={() => setShowImport(true)} style={{
+              marginLeft: 'auto', fontSize: 11, color: MUTED, background: 'none',
+              border: `1px solid ${BORDER}`, borderRadius: 5, padding: '3px 8px', cursor: 'pointer'
+            }}>+ Import</button>
           </div>
           <div style={{ display: 'flex', padding: '6px 14px', borderBottom: `1px solid ${BORDER}`, fontSize: 11, color: '#3a3a50' }}>
             <span style={{ flex: 1 }}>Label</span>
@@ -433,7 +442,6 @@ function EditorInner() {
                     </button>
                   ))}
                 </div>
-
                 <Divider />
                 <SectionLabel>Text</SectionLabel>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -441,7 +449,6 @@ function EditorInner() {
                   <input value={subtitle} onChange={e => setSubtitle(e.target.value)} placeholder="Subtitle" style={{ ...inputBase, color: '#aaa' }} />
                   <input value={yLabel} onChange={e => setYLabel(e.target.value)} placeholder="Y-axis label" style={inputBase} />
                 </div>
-
                 <Divider />
                 <SectionLabel>Options</SectionLabel>
                 <Toggle label="Show dots" value={showDots} onChange={setShowDots} />
@@ -464,7 +471,6 @@ function EditorInner() {
                 )}
               </div>
             )}
-
             {rightTab === 'colors' && (
               <div>
                 <SectionLabel>Background</SectionLabel>
@@ -490,7 +496,6 @@ function EditorInner() {
                 <ColorRow label="Grid lines" value={style.gridColor} onChange={v => updateStyle('gridColor', v)} />
               </div>
             )}
-
             {rightTab === 'fonts' && (
               <div>
                 <SectionLabel>Fonts</SectionLabel>

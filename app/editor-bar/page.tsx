@@ -5,6 +5,7 @@ import { drawBarChart, type BarChartStyle, BAR_PRESETS, BAR_FONTS } from '@/lib/
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
 import { useRouter, useSearchParams } from 'next/navigation'
+import DataImportModal from '@/components/DataImportModal'
 
 const BLUE = '#4d7cff'
 const BG = '#0c0c10'
@@ -17,10 +18,7 @@ function Toggle({ label, value, onChange }: { label: string, value: boolean, onC
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 0' }}>
       <span style={{ fontSize: 13, color: '#aaa' }}>{label}</span>
-      <button onClick={() => onChange(!value)} style={{
-        width: 36, height: 20, borderRadius: 10, border: 'none', cursor: 'pointer', position: 'relative', flexShrink: 0,
-        background: value ? BLUE : 'rgba(255,255,255,0.1)', transition: 'background 0.2s'
-      }}>
+      <button onClick={() => onChange(!value)} style={{ width: 36, height: 20, borderRadius: 10, border: 'none', cursor: 'pointer', position: 'relative', flexShrink: 0, background: value ? BLUE : 'rgba(255,255,255,0.1)', transition: 'background 0.2s' }}>
         <span style={{ position: 'absolute', top: 2, left: value ? 18 : 2, width: 16, height: 16, borderRadius: '50%', background: 'white', transition: 'left 0.2s', display: 'block' }} />
       </button>
     </div>
@@ -33,8 +31,7 @@ function ColorRow({ label, value, onChange }: { label: string, value: string, on
       <span style={{ fontSize: 13, color: '#aaa' }}>{label}</span>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ fontSize: 11, color: '#444', fontFamily: 'monospace' }}>{value.startsWith('#') ? value.toUpperCase() : ''}</span>
-        <input type="color" value={value.startsWith('#') ? value : '#ffffff'} onChange={e => onChange(e.target.value)}
-          style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', background: 'transparent', padding: 2, flexShrink: 0 }} />
+        <input type="color" value={value.startsWith('#') ? value : '#ffffff'} onChange={e => onChange(e.target.value)} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', background: 'transparent', padding: 2, flexShrink: 0 }} />
       </div>
     </div>
   )
@@ -45,8 +42,7 @@ function Slider({ label, value, onChange, min, max, step }: { label: string, val
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '4px 0' }}>
       <span style={{ fontSize: 13, color: '#aaa', flexShrink: 0 }}>{label}</span>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))}
-          style={{ width: 80, accentColor: BLUE }} />
+        <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))} style={{ width: 80, accentColor: BLUE }} />
         <span style={{ fontSize: 11, color: '#555', width: 28, textAlign: 'right', flexShrink: 0 }}>{value}</span>
       </div>
     </div>
@@ -57,10 +53,7 @@ function FontPicker({ label, value, onChange }: { label: string, value: string, 
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '4px 0' }}>
       <span style={{ fontSize: 13, color: '#aaa', flexShrink: 0, width: 70 }}>{label}</span>
-      <select value={value} onChange={e => onChange(e.target.value)} style={{
-        fontSize: 12, background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`,
-        borderRadius: 6, padding: '5px 8px', color: TEXT, fontFamily: value, flex: 1
-      }}>
+      <select value={value} onChange={e => onChange(e.target.value)} style={{ fontSize: 12, background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, borderRadius: 6, padding: '5px 8px', color: TEXT, fontFamily: value, flex: 1 }}>
         {BAR_FONTS.map(f => <option key={f} value={f} style={{ fontFamily: f, background: '#111' }}>{f}</option>)}
       </select>
     </div>
@@ -71,8 +64,7 @@ function NumField({ label, value, onChange, min, max }: { label: string, value: 
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
       <span style={{ fontSize: 13, color: '#aaa' }}>{label}</span>
-      <input type="number" value={value} min={min} max={max} onChange={e => onChange(parseInt(e.target.value) || min)}
-        style={{ width: 60, fontSize: 13, background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, borderRadius: 6, padding: '4px 8px', color: TEXT, textAlign: 'right' }} />
+      <input type="number" value={value} min={min} max={max} onChange={e => onChange(parseInt(e.target.value) || min)} style={{ width: 60, fontSize: 13, background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, borderRadius: 6, padding: '4px 8px', color: TEXT, textAlign: 'right' }} />
     </div>
   )
 }
@@ -118,9 +110,20 @@ function EditorBarInner() {
   const [projectTitle, setProjectTitle] = useState('Untitled')
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
   const [loaded, setLoaded] = useState(false)
+  const [playCount, setPlayCount] = useState(0)
+  const [playLoading, setPlayLoading] = useState(false)
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false)
+  const [showImport, setShowImport] = useState(false)
 
   useEffect(() => {
-    fetch('/api/check-pro').then(r => r.json()).then(d => setIsPro(d.isPro))
+    fetch('/api/check-pro').then(r => r.json()).then(d => {
+      setIsPro(d.isPro)
+      if (d.user) {
+        fetch('/api/play').then(r => r.json()).then(pd => {
+          if (pd.play_count !== undefined) setPlayCount(pd.play_count)
+        })
+      }
+    })
   }, [])
 
   useEffect(() => {
@@ -186,7 +189,16 @@ function EditorBarInner() {
 
   useEffect(() => { redraw(1) }, [redraw])
 
-  const startAnimation = useCallback(() => {
+  const startAnimation = useCallback(async () => {
+    if (isPlaying || playLoading) return
+    if (!isPro) {
+      setPlayLoading(true)
+      const res = await fetch('/api/play', { method: 'POST' })
+      const data = await res.json()
+      setPlayLoading(false)
+      if (!data.allowed) { setShowUpgradePrompt(true); return }
+      setPlayCount(data.play_count)
+    }
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
     setIsPlaying(true)
     let p = 0
@@ -196,7 +208,7 @@ function EditorBarInner() {
       redraw(p); rafRef.current = requestAnimationFrame(step)
     }
     rafRef.current = requestAnimationFrame(step)
-  }, [redraw, speed])
+  }, [redraw, speed, isPro, isPlaying, playLoading])
 
   const stopAnimation = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
@@ -257,16 +269,36 @@ function EditorBarInner() {
     setStyle(prev => ({ ...prev, [key]: val }))
 
   const canvasDisplay = ratio === 'portrait' ? { w: 270, h: 480 } : ratio === 'landscape' ? { w: 580, h: 326 } : { w: 540, h: 540 }
+  const playsLeft = Math.max(0, 5 - playCount)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif', fontSize: 14 }}>
+
+      {showImport && (
+        <DataImportModal chartType="bar" onImport={rows => setRows(rows)} onClose={() => setShowImport(false)} />
+      )}
+
+      {showUpgradePrompt && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowUpgradePrompt(false)}>
+          <div style={{ background: '#16161e', border: `1px solid ${BORDER}`, borderRadius: 16, width: 400, padding: 36, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>⚡</div>
+            <h2 style={{ fontSize: 22, fontWeight: 800, color: TEXT, margin: '0 0 12px', fontFamily: 'Syne, sans-serif' }}>You've used your 5 free plays</h2>
+            <p style={{ fontSize: 14, color: MUTED, margin: '0 0 28px', lineHeight: 1.6 }}>Upgrade to Pro for unlimited plays, unlimited exports, and no watermark.</p>
+            <button onClick={handleExport} style={{ width: '100%', padding: '13px', borderRadius: 10, border: 'none', background: BLUE, color: 'white', fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 12 }}>Upgrade to Pro — $4.99/mo</button>
+            <button onClick={() => setShowUpgradePrompt(false)} style={{ width: '100%', padding: '11px', borderRadius: 10, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, fontSize: 14, cursor: 'pointer' }}>Maybe later</button>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', alignItems: 'center', padding: '0 16px', height: 50, borderBottom: `1px solid ${BORDER}`, flexShrink: 0, gap: 10 }}>
         <button onClick={() => router.push('/projects')} style={{ background: 'none', border: 'none', color: MUTED, fontSize: 13, cursor: 'pointer', padding: '0 8px 0 0' }}>← Projects</button>
         {projectId && <input value={projectTitle} onChange={e => setProjectTitle(e.target.value)} style={{ background: 'transparent', border: 'none', color: TEXT, fontSize: 14, fontWeight: 600, outline: 'none', width: 180 }} />}
         {projectId && <span style={{ fontSize: 11, color: saveStatus === 'saved' ? '#4a4' : saveStatus === 'saving' ? MUTED : '#a84' }}>{saveStatus === 'saved' ? '✓ Saved' : saveStatus === 'saving' ? 'Saving...' : '● Unsaved'}</span>}
         <div style={{ flex: 1 }} />
-        <button onClick={() => { redraw(0); startAnimation() }} style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, borderRadius: 7, padding: '6px 11px', color: '#aaa', fontSize: 13, cursor: 'pointer' }}>↺</button>
-        <button onClick={isPlaying ? stopAnimation : startAnimation} style={{ background: BLUE, border: 'none', borderRadius: 7, padding: '6px 16px', color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{isPlaying ? '⏸ Pause' : '▶ Play'}</button>
+        <button onClick={() => { redraw(0); startAnimation() }} disabled={playLoading} style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, borderRadius: 7, padding: '6px 11px', color: '#aaa', fontSize: 13, cursor: 'pointer' }}>↺</button>
+        <button onClick={isPlaying ? stopAnimation : startAnimation} disabled={playLoading} style={{ background: BLUE, border: 'none', borderRadius: 7, padding: '6px 16px', color: 'white', fontSize: 13, fontWeight: 600, cursor: playLoading ? 'default' : 'pointer', opacity: playLoading ? 0.7 : 1 }}>
+          {playLoading ? '⏳ Loading...' : isPlaying ? '⏸ Pause' : `▶ Play${!isPro && playCount > 0 ? ` (${playsLeft} left)` : ''}`}
+        </button>
         <button onClick={handleExport} disabled={isRecording} style={{ background: isPro ? BLUE : 'rgba(77,124,255,0.12)', border: `1px solid ${isPro ? BLUE : 'rgba(77,124,255,0.3)'}`, borderRadius: 7, padding: '6px 16px', color: isPro ? 'white' : BLUE, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: isRecording ? 0.5 : 1 }}>
           {isRecording ? `⏺ ${statusText}` : isPro ? '⬇ Export MP4' : '⚡ Go Pro — $4.99/mo'}
         </button>
@@ -280,6 +312,7 @@ function EditorBarInner() {
         <div style={{ width: 240, background: SURFACE, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderBottom: `1px solid ${BORDER}` }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: '#ccc' }}>Data</span>
+            <button onClick={() => setShowImport(true)} style={{ marginLeft: 'auto', fontSize: 11, color: MUTED, background: 'none', border: `1px solid ${BORDER}`, borderRadius: 5, padding: '3px 8px', cursor: 'pointer' }}>+ Import</button>
           </div>
           <div style={{ display: 'flex', padding: '6px 14px', borderBottom: `1px solid ${BORDER}`, fontSize: 11, color: '#3a3a50' }}>
             <span style={{ flex: 1 }}>Label</span><span>Value</span>
