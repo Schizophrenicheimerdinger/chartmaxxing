@@ -35,15 +35,21 @@ export default function Projects() {
     })
   }, [])
 
-  const createProject = async (chartType: string) => {
-    const res = await fetch('/api/projects', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: 'Untitled', chart_type: chartType })
-    })
-    const { project } = await res.json()
-    router.push(`/editor?project=${project.id}`)
-  }
+  const getEditorPath = (chartType: string) => {
+  if (chartType === 'bar') return '/editor-bar'
+  if (chartType === 'pie') return '/editor-pie'
+  return '/editor'
+}
+
+const createProject = async (chartType: string) => {
+  const res = await fetch('/api/projects', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: 'Untitled', chart_type: chartType })
+  })
+  const { project } = await res.json()
+  router.push(`${getEditorPath(chartType)}?project=${project.id}`)
+}
 
   const deleteProject = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -137,7 +143,7 @@ export default function Projects() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
               {projects.map(project => (
                 <div key={project.id}
-                  onClick={() => router.push(`/editor?project=${project.id}`)}
+                  onClick={() => router.push(`${getEditorPath(project.chart_type)}?project=${project.id}`)}
                   style={{
                     background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12,
                     overflow: 'hidden', cursor: 'pointer', transition: 'border-color 0.15s',
