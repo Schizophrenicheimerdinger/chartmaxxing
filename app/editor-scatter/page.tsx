@@ -5,6 +5,7 @@ import { drawScatterChart, type ScatterChartStyle, type ScatterPoint, SCATTER_PR
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
 import { useRouter, useSearchParams } from 'next/navigation'
+import DataImportModal from '@/components/DataImportModal'
 
 const BLUE = '#4d7cff'
 const BG = '#0c0c10'
@@ -115,7 +116,7 @@ function EditorScatterInner() {
   const [loaded, setLoaded] = useState(false)
   const [playCount, setPlayCount] = useState(0)
   const [playLoading, setPlayLoading] = useState(false)
-  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false)
+  const [showImport, setShowImport] = useState(false)
 
   useEffect(() => {
     fetch('/api/check-pro').then(r => r.json()).then(d => {
@@ -269,6 +270,13 @@ function EditorScatterInner() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif', fontSize: 14 }}>
 
+{showImport && (
+  <DataImportModal
+    chartType="scatter"
+    onImport={rows => setRows(rows as any)}
+    onClose={() => setShowImport(false)}
+  />
+)}
       {showUpgradePrompt && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowUpgradePrompt(false)}>
           <div style={{ background: '#16161e', border: `1px solid ${BORDER}`, borderRadius: 16, width: 400, padding: 36, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
@@ -303,6 +311,7 @@ function EditorScatterInner() {
         <div style={{ width: 240, background: SURFACE, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderBottom: `1px solid ${BORDER}` }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: '#ccc' }}>Data</span>
+<button onClick={() => setShowImport(true)} style={{ marginLeft: 'auto', fontSize: 11, color: MUTED, background: 'none', border: `1px solid ${BORDER}`, borderRadius: 5, padding: '3px 8px', cursor: 'pointer' }}>+ Import</button>
           </div>
           <div style={{ display: 'flex', padding: '6px 14px', borderBottom: `1px solid ${BORDER}`, fontSize: 11, color: '#3a3a50' }}>
             <span style={{ flex: 1 }}>Label</span>

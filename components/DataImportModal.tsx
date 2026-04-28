@@ -26,15 +26,24 @@ Engineering,45
 Sales,20
 
 Now output data for: [DESCRIBE YOUR DATA HERE]`,
+  scatter: `Output ONLY raw CSV data for a scatter plot. Three columns: label, x value, y value. No headers, no explanation, no markdown. One row per line, comma separated. Example:
+Alice,2,4
+Bob,5,9
+Charlie,8,6
+
+Now output data for: [DESCRIBE YOUR DATA HERE]`,
 }
 
+interface StandardRow { label: string; value: string }
+interface ScatterRow { label: string; x: string; y: string }
+
 interface Props {
-  chartType: 'line' | 'bar' | 'pie'
-  onImport: (rows: { label: string, value: string }[]) => void
+  chartType: 'line' | 'bar' | 'pie' | 'scatter'
+  onImport: (rows: StandardRow[] | ScatterRow[]) => void
   onClose: () => void
 }
 
-function parseCSV(raw: string): { label: string, value: string }[] {
+function parseCSVStandard(raw: string): StandardRow[] {
   return raw
     .split('\n')
     .map(line => line.trim())
@@ -46,17 +55,36 @@ function parseCSV(raw: string): { label: string, value: string }[] {
       const value = line.slice(commaIdx + 1).trim().replace(/^"|"$/g, '')
       return { label, value }
     })
-    .filter(Boolean) as { label: string, value: string }[]
+    .filter(Boolean) as StandardRow[]
+}
+
+function parseCSVScatter(raw: string): ScatterRow[] {
+  return raw
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .map(line => {
+      const parts = line.split(',')
+      if (parts.length < 2) return null
+      if (parts.length === 2) {
+        // Just x,y — generate label
+        return { label: '', x: parts[0].trim().replace(/^"|"$/g, ''), y: parts[1].trim().replace(/^"|"$/g, '') }
+      }
+      // label,x,y
+      return { label: parts[0].trim().replace(/^"|"$/g, ''), x: parts[1].trim().replace(/^"|"$/g, ''), y: parts[2].trim().replace(/^"|"$/g, '') }
+    })
+    .filter(Boolean) as ScatterRow[]
 }
 
 export default function DataImportModal({ chartType, onImport, onClose }: Props) {
   const [tab, setTab] = useState<'ai' | 'csv'>('ai')
   const [csvText, setCsvText] = useState('')
-  const [preview, setPreview] = useState<{ label: string, value: string }[] | null>(null)
+  const [preview, setPreview] = useState<StandardRow[] | ScatterRow[] | null>(null)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
 
   const prompt = AI_PROMPTS[chartType] ?? AI_PROMPTS.line
+  const isScatter = chartType === 'scatter'
 
   const handleCopy = () => {
     navigator.clipboard.writeText(prompt)
@@ -65,9 +93,11 @@ export default function DataImportModal({ chartType, onImport, onClose }: Props)
   }
 
   const handleCSVPreview = () => {
-    const rows = parseCSV(csvText)
+    const rows = isScatter ? parseCSVScatter(csvText) : parseCSVStandard(csvText)
     if (rows.length === 0) {
-      setError('Could not parse CSV. Make sure each line has a label and value separated by a comma.')
+      setError(isScatter
+        ? 'Could not parse. Each line should be: label,x,y or just x,y'
+        : 'Could not parse. Each line should be: label,value')
       return
     }
     setError('')
@@ -76,7 +106,7 @@ export default function DataImportModal({ chartType, onImport, onClose }: Props)
 
   const handleApply = () => {
     if (!preview) return
-    onImport(preview)
+    onImport(preview as any)
     onClose()
   }
 
@@ -135,7 +165,7 @@ export default function DataImportModal({ chartType, onImport, onClose }: Props)
               {copied ? '✓ Copied!' : 'Copy prompt'}
             </button>
             <p style={{ fontSize: 12, color: MUTED, marginTop: 14, textAlign: 'center' }}>
-              Then come back and paste the AI output into the <strong style={{ color: TEXT }}>Paste CSV</strong> tab →
+              Then paste the AI output into the <strong style={{ color: TEXT }}>Paste CSV</strong> tab →
             </p>
           </div>
         )}
@@ -143,12 +173,14 @@ export default function DataImportModal({ chartType, onImport, onClose }: Props)
         {tab === 'csv' && (
           <div>
             <p style={{ fontSize: 13, color: MUTED, margin: '0 0 12px', lineHeight: 1.6 }}>
-              Paste the CSV output from your AI here. Two columns: label and value, comma separated.
+              {isScatter
+                ? 'Paste CSV with three columns: label, x, y — or just two columns: x, y.'
+                : 'Paste CSV with two columns: label and value, comma separated.'}
             </p>
             <textarea
               value={csvText}
               onChange={e => { setCsvText(e.target.value); setPreview(null); setError('') }}
-              placeholder={'Mon,85\nTue,60\nWed,40\nThu,22\nFri,5'}
+              placeholder={isScatter ? 'Alice,2,4\nBob,5,9\nCharlie,8,6' : 'Mon,85\nTue,60\nWed,40'}
               style={textareaStyle}
             />
             {error && <div style={{ color: '#ff6b6b', fontSize: 13, marginTop: 8 }}>{error}</div>}
@@ -162,18 +194,31 @@ export default function DataImportModal({ chartType, onImport, onClose }: Props)
           </div>
         )}
 
+        {error && tab === 'ai' && (
+          <div style={{ color: '#ff6b6b', fontSize: 13, marginTop: 12 }}>{error}</div>
+        )}
+
         {preview && (
           <div style={{ marginTop: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: MUTED, marginBottom: 10 }}>
               Preview — {preview.length} rows
             </div>
             <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, border: `1px solid ${BORDER}`, overflow: 'hidden', maxHeight: 200, overflowY: 'auto' }}>
-              {preview.map((row, i) => (
-                <div key={i} style={{ display: 'flex', padding: '7px 12px', borderBottom: i < preview.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
-                  <span style={{ flex: 1, fontSize: 13, color: TEXT }}>{row.label}</span>
-                  <span style={{ fontSize: 13, color: MUTED }}>{row.value}</span>
-                </div>
-              ))}
+              {isScatter
+                ? (preview as ScatterRow[]).map((row, i) => (
+                  <div key={i} style={{ display: 'flex', padding: '7px 12px', borderBottom: i < preview.length - 1 ? `1px solid ${BORDER}` : 'none', gap: 8 }}>
+                    <span style={{ flex: 1, fontSize: 13, color: TEXT }}>{row.label || '—'}</span>
+                    <span style={{ fontSize: 13, color: MUTED }}>x: {row.x}</span>
+                    <span style={{ fontSize: 13, color: MUTED }}>y: {row.y}</span>
+                  </div>
+                ))
+                : (preview as StandardRow[]).map((row, i) => (
+                  <div key={i} style={{ display: 'flex', padding: '7px 12px', borderBottom: i < preview.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
+                    <span style={{ flex: 1, fontSize: 13, color: TEXT }}>{row.label}</span>
+                    <span style={{ fontSize: 13, color: MUTED }}>{row.value}</span>
+                  </div>
+                ))
+              }
             </div>
             <button onClick={handleApply} style={{
               width: '100%', padding: '12px', borderRadius: 8, border: 'none',
