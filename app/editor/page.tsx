@@ -127,12 +127,20 @@ function EditorInner() {
   const [projectTitle, setProjectTitle] = useState('Untitled')
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
   const [loaded, setLoaded] = useState(false)
+  const [playCount, setPlayCount] = useState(0)
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false)
 
   useEffect(() => {
-    fetch('/api/check-pro').then(r => r.json()).then(d => setIsPro(d.isPro))
+    fetch('/api/check-pro').then(r => r.json()).then(d => {
+      setIsPro(d.isPro)
+      if (d.user) {
+        fetch('/api/play', { method: 'GET' }).then(r => r.json()).then(pd => {
+          if (pd.play_count !== undefined) setPlayCount(pd.play_count)
+        })
+      }
+    })
   }, [])
 
-  // Load project if ID in URL
   useEffect(() => {
     if (!projectId) { setLoaded(true); return }
     fetch(`/api/projects/${projectId}`).then(r => r.json()).then(({ project }) => {
@@ -160,7 +168,6 @@ function EditorInner() {
     })
   }, [projectId])
 
-  // Auto-save
   const saveProject = useCallback(() => {
     if (!projectId || !loaded) return
     setSaveStatus('saving')
@@ -202,7 +209,16 @@ function EditorInner() {
 
   useEffect(() => { redraw(1) }, [redraw])
 
-  const startAnimation = useCallback(() => {
+  const startAnimation = useCallback(async () => {
+    if (!isPro) {
+      const res = await fetch('/api/play', { method: 'POST' })
+      const data = await res.json()
+      if (!data.allowed) {
+        setShowUpgradePrompt(true)
+        return
+      }
+      setPlayCount(data.play_count)
+    }
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
     setIsPlaying(true)
     let p = 0
@@ -212,7 +228,7 @@ function EditorInner() {
       redraw(p); rafRef.current = requestAnimationFrame(step)
     }
     rafRef.current = requestAnimationFrame(step)
-  }, [redraw, speed])
+  }, [redraw, speed, isPro])
 
   const stopAnimation = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
@@ -273,9 +289,44 @@ function EditorInner() {
     setStyle(prev => ({ ...prev, [key]: val }))
 
   const canvasDisplay = ratio === 'portrait' ? { w: 270, h: 480 } : ratio === 'landscape' ? { w: 580, h: 326 } : { w: 540, h: 540 }
+  const playsLeft = Math.max(0, 5 - playCount)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif', fontSize: 14 }}>
+
+      {/* Upgrade prompt */}
+      {showUpgradePrompt && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 200,
+          background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }} onClick={() => setShowUpgradePrompt(false)}>
+          <div style={{
+            background: '#16161e', border: `1px solid ${BORDER}`, borderRadius: 16,
+            width: 400, padding: 36, textAlign: 'center'
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>⚡</div>
+            <h2 style={{ fontSize: 22, fontWeight: 800, color: TEXT, margin: '0 0 12px', fontFamily: 'Syne, sans-serif' }}>
+              You've used your 5 free plays
+            </h2>
+            <p style={{ fontSize: 14, color: MUTED, margin: '0 0 28px', lineHeight: 1.6 }}>
+              Upgrade to Pro for unlimited plays, unlimited exports, and no watermark.
+            </p>
+            <button onClick={handleExport} style={{
+              width: '100%', padding: '13px', borderRadius: 10, border: 'none',
+              background: BLUE, color: 'white', fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 12
+            }}>
+              Upgrade to Pro — $4.99/mo
+            </button>
+            <button onClick={() => setShowUpgradePrompt(false)} style={{
+              width: '100%', padding: '11px', borderRadius: 10, border: `1px solid ${BORDER}`,
+              background: 'transparent', color: MUTED, fontSize: 14, cursor: 'pointer'
+            }}>
+              Maybe later
+            </button>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', padding: '0 16px', height: 50, borderBottom: `1px solid ${BORDER}`, flexShrink: 0, gap: 10 }}>
         <button onClick={() => router.push('/projects')} style={{
@@ -295,7 +346,7 @@ function EditorInner() {
           style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, borderRadius: 7, padding: '6px 11px', color: '#aaa', fontSize: 13, cursor: 'pointer' }}>↺</button>
         <button onClick={isPlaying ? stopAnimation : startAnimation}
           style={{ background: BLUE, border: 'none', borderRadius: 7, padding: '6px 16px', color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-          {isPlaying ? '⏸ Pause' : '▶ Play'}
+          {isPlaying ? '⏸ Pause' : `▶ Play${!isPro && playCount > 0 ? ` (${playsLeft} left)` : ''}`}
         </button>
         <button onClick={handleExport} disabled={isRecording}
           style={{ background: isPro ? BLUE : 'rgba(77,124,255,0.12)', border: `1px solid ${isPro ? BLUE : 'rgba(77,124,255,0.3)'}`, borderRadius: 7, padding: '6px 16px', color: isPro ? 'white' : BLUE, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: isRecording ? 0.5 : 1 }}>
