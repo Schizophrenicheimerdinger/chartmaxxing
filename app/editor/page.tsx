@@ -128,13 +128,14 @@ function EditorInner() {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
   const [loaded, setLoaded] = useState(false)
   const [playCount, setPlayCount] = useState(0)
+  const [playLoading, setPlayLoading] = useState(false)
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false)
 
   useEffect(() => {
     fetch('/api/check-pro').then(r => r.json()).then(d => {
       setIsPro(d.isPro)
       if (d.user) {
-        fetch('/api/play', { method: 'GET' }).then(r => r.json()).then(pd => {
+        fetch('/api/play').then(r => r.json()).then(pd => {
           if (pd.play_count !== undefined) setPlayCount(pd.play_count)
         })
       }
@@ -210,9 +211,12 @@ function EditorInner() {
   useEffect(() => { redraw(1) }, [redraw])
 
   const startAnimation = useCallback(async () => {
+    if (isPlaying || playLoading) return
     if (!isPro) {
+      setPlayLoading(true)
       const res = await fetch('/api/play', { method: 'POST' })
       const data = await res.json()
+      setPlayLoading(false)
       if (!data.allowed) {
         setShowUpgradePrompt(true)
         return
@@ -228,7 +232,7 @@ function EditorInner() {
       redraw(p); rafRef.current = requestAnimationFrame(step)
     }
     rafRef.current = requestAnimationFrame(step)
-  }, [redraw, speed, isPro])
+  }, [redraw, speed, isPro, isPlaying, playLoading])
 
   const stopAnimation = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
@@ -294,7 +298,6 @@ function EditorInner() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif', fontSize: 14 }}>
 
-      {/* Upgrade prompt */}
       {showUpgradePrompt && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 200,
@@ -342,11 +345,13 @@ function EditorInner() {
           </span>
         )}
         <div style={{ flex: 1 }} />
-        <button onClick={() => { redraw(0); startAnimation() }}
+        <button onClick={() => { redraw(0); startAnimation() }} disabled={playLoading}
           style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, borderRadius: 7, padding: '6px 11px', color: '#aaa', fontSize: 13, cursor: 'pointer' }}>↺</button>
-        <button onClick={isPlaying ? stopAnimation : startAnimation}
-          style={{ background: BLUE, border: 'none', borderRadius: 7, padding: '6px 16px', color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-          {isPlaying ? '⏸ Pause' : `▶ Play${!isPro && playCount > 0 ? ` (${playsLeft} left)` : ''}`}
+        <button
+          onClick={isPlaying ? stopAnimation : startAnimation}
+          disabled={playLoading}
+          style={{ background: BLUE, border: 'none', borderRadius: 7, padding: '6px 16px', color: 'white', fontSize: 13, fontWeight: 600, cursor: playLoading ? 'default' : 'pointer', opacity: playLoading ? 0.7 : 1 }}>
+          {playLoading ? '⏳ Loading...' : isPlaying ? '⏸ Pause' : `▶ Play${!isPro && playCount > 0 ? ` (${playsLeft} left)` : ''}`}
         </button>
         <button onClick={handleExport} disabled={isRecording}
           style={{ background: isPro ? BLUE : 'rgba(77,124,255,0.12)', border: `1px solid ${isPro ? BLUE : 'rgba(77,124,255,0.3)'}`, borderRadius: 7, padding: '6px 16px', color: isPro ? 'white' : BLUE, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: isRecording ? 0.5 : 1 }}>
