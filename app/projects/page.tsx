@@ -38,6 +38,7 @@ export default function Projects() {
   const getEditorPath = (chartType: string) => {
   if (chartType === 'bar') return '/editor-bar'
   if (chartType === 'pie') return '/editor-pie'
+  if (chartType === 'scatter') return '/editor-scatter'
   return '/editor'
 }
 
@@ -73,11 +74,13 @@ const createProject = async (chartType: string) => {
   }
 
   const chartTypes = [
-    { key: 'line', label: 'Line chart', desc: 'Trends over time', icon: '📈', available: true },
-    { key: 'bar', label: 'Bar chart', desc: 'Compare categories', icon: '📊', available: true },
-    { key: 'pie', label: 'Pie chart', desc: 'Show proportions', icon: '🥧', available: true },
-    { key: 'more', label: 'More coming', desc: 'Stay tuned', icon: '✨', available: false },
-  ]
+  { key: 'line', label: 'Line chart', desc: 'Trends over time', icon: '📈', available: true },
+  { key: 'bar', label: 'Bar chart', desc: 'Compare categories', icon: '📊', available: true },
+  { key: 'pie', label: 'Pie chart', desc: 'Show proportions', icon: '🥧', available: true },
+  { key: 'scatter', label: 'Scatter plot', desc: 'Correlation & distribution', icon: '✦', available: true },
+  { key: 'race', label: 'Race bar', desc: 'Rankings over time', icon: '🏆', available: false },
+  { key: 'more', label: 'More coming', desc: 'Stay tuned', icon: '✨', available: false },
+]
 
   return (
     <div style={{ minHeight: '100vh', background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif' }}>
@@ -100,7 +103,7 @@ const createProject = async (chartType: string) => {
         <div style={{ marginBottom: 64 }}>
           <h2 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 6px' }}>Create new</h2>
           <p style={{ fontSize: 14, color: MUTED, margin: '0 0 24px' }}>Choose a chart type to get started</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
             {chartTypes.map(ct => (
               <button key={ct.key} onClick={() => ct.available && createProject(ct.key)}
                 disabled={!ct.available}
