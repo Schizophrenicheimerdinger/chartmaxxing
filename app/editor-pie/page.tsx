@@ -257,7 +257,7 @@ function EditorPieInner() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif', fontSize: 14 }}>
 
       {showImport && (
-        <DataImportModal chartType="pie" onImport={rows => setRows(rows)} onClose={() => setShowImport(false)} />
+        <DataImportModal chartType="pie" onImport={rows => setRows(rows as any)} onClose={() => setShowImport(false)} />
       )}
 
       {showUpgradePrompt && (
