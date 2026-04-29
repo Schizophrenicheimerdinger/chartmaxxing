@@ -116,7 +116,7 @@ function EditorScatterInner() {
   const [loaded, setLoaded] = useState(false)
   const [playCount, setPlayCount] = useState(0)
   const [playLoading, setPlayLoading] = useState(false)
-  const [showImport, setShowImport] = useState(false)
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false)
 
   useEffect(() => {
     fetch('/api/check-pro').then(r => r.json()).then(d => {
