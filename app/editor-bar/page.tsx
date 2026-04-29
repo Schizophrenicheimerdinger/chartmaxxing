@@ -275,7 +275,7 @@ function EditorBarInner() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif', fontSize: 14 }}>
 
       {showImport && (
-        <DataImportModal chartType="bar" onImport={rows => setRows(rows)} onClose={() => setShowImport(false)} />
+        <DataImportModal chartType="bar" onImport={rows => setRows(rows as any)} onClose={() => setShowImport(false)} />
       )}
 
       {showUpgradePrompt && (
