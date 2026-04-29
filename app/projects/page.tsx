@@ -39,6 +39,7 @@ export default function Projects() {
   if (chartType === 'bar') return '/editor-bar'
   if (chartType === 'pie') return '/editor-pie'
   if (chartType === 'scatter') return '/editor-scatter'
+  if (chartType === 'race') return '/editor-race'
   return '/editor'
 }
 
@@ -78,7 +79,7 @@ const createProject = async (chartType: string) => {
   { key: 'bar', label: 'Bar chart', desc: 'Compare categories', icon: '📊', available: true },
   { key: 'pie', label: 'Pie chart', desc: 'Show proportions', icon: '🥧', available: true },
   { key: 'scatter', label: 'Scatter plot', desc: 'Correlation & distribution', icon: '✦', available: true },
-  { key: 'race', label: 'Race bar', desc: 'Rankings over time', icon: '🏆', available: false },
+  { key: 'race', label: 'Race bar', desc: 'Rankings over time', icon: '🏆', available: true },
   { key: 'more', label: 'More coming', desc: 'Stay tuned', icon: '✨', available: false },
 ]
 
@@ -162,7 +163,7 @@ const createProject = async (chartType: string) => {
                     borderBottom: `1px solid ${BORDER}`
                   }}>
                     <span style={{ fontSize: 32 }}>
-                      {project.chart_type === 'line' ? '📈' : project.chart_type === 'bar' ? '📊' : '🥧'}
+                      {project.chart_type === 'line' ? '📈' : project.chart_type === 'bar' ? '📊' : project.chart_type === 'scatter' ? '✦' : project.chart_type === 'race' ? '🏆' : '🥧'}
                     </span>
                   </div>
 
