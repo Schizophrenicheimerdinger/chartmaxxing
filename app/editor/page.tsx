@@ -300,7 +300,7 @@ function EditorInner() {
       {showImport && (
         <DataImportModal
           chartType="line"
-          onImport={rows => setRows(rows)}
+          onImport={rows => setRows(rows as any)}
           onClose={() => setShowImport(false)}
         />
       )}
