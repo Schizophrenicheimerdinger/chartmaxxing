@@ -65,7 +65,7 @@ function ExportOverlay({ status, progress }: { status: string, progress: number 
       <div style={{ background: '#16161e', border: `1px solid ${BORDER}`, borderRadius: 16, width: 360, padding: 32, textAlign: 'center' }}>
         <div style={{ fontSize: 36, marginBottom: 16 }}>⏺</div>
         <div style={{ fontSize: 16, fontWeight: 700, color: TEXT, marginBottom: 8 }}>{status}</div>
-        <div style={{ fontSize: 13, color: MUTED, marginBottom: 20 }}>This may take up to 30 seconds</div>
+        <div style={{ fontSize: 13, color: MUTED, marginBottom: 20 }}>Hang tight, this can take up to a minute. The progress bar may look a little off — that's normal, it's still working! Sorry for any inconvenience!</div>
         <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 8, height: 8, overflow: 'hidden' }}>
           <div style={{ height: '100%', borderRadius: 8, background: BLUE, width: `${progress}%`, transition: 'width 0.3s ease' }} />
         </div>
