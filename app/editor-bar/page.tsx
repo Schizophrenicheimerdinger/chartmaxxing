@@ -82,6 +82,22 @@ const inputBase: React.CSSProperties = {
   borderRadius: 8, padding: '9px 12px', color: TEXT, fontSize: 13, outline: 'none', boxSizing: 'border-box',
 }
 
+function ExportOverlay({ status, progress }: { status: string, progress: number }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: '#16161e', border: `1px solid ${BORDER}`, borderRadius: 16, width: 360, padding: 32, textAlign: 'center' }}>
+        <div style={{ fontSize: 36, marginBottom: 16 }}>⏺</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: TEXT, marginBottom: 8 }}>{status}</div>
+        <div style={{ fontSize: 13, color: MUTED, marginBottom: 20 }}>This may take up to 30 seconds</div>
+        <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 8, height: 8, overflow: 'hidden' }}>
+          <div style={{ height: '100%', borderRadius: 8, background: BLUE, width: `${progress}%`, transition: 'width 0.3s ease' }} />
+        </div>
+        <div style={{ fontSize: 12, color: MUTED, marginTop: 10 }}>{Math.round(progress)}%</div>
+      </div>
+    </div>
+  )
+}
+
 function EditorBarInner() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rafRef = useRef<number | null>(null)
@@ -105,6 +121,7 @@ function EditorBarInner() {
   const [isRecording, setIsRecording] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [statusText, setStatusText] = useState('')
+  const [exportProgress, setExportProgress] = useState(0)
   const [isPro, setIsPro] = useState(false)
   const [rightTab, setRightTab] = useState<'design' | 'colors' | 'fonts'>('design')
   const [projectTitle, setProjectTitle] = useState('Untitled')
@@ -219,18 +236,17 @@ function EditorBarInner() {
     if (!isPro) {
       const res = await fetch('/api/checkout', { method: 'POST' })
       const { url } = await res.json()
-      window.location.href = url
-      return
+      window.location.href = url; return
     }
     if (isRecording || !canvasRef.current) return
-    setIsRecording(true); setStatusText('Recording...')
+    setIsRecording(true); setStatusText('Recording...'); setExportProgress(5)
     const mimeType = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm'
     const stream = canvasRef.current.captureStream(60)
     const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 10_000_000 })
     const chunks: Blob[] = []
     recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
     recorder.onstop = async () => {
-      setStatusText('Converting...')
+      setStatusText('Loading converter...'); setExportProgress(30)
       const webmBlob = new Blob(chunks, { type: mimeType })
       const ffmpeg = new FFmpeg()
       const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
@@ -238,17 +254,22 @@ function EditorBarInner() {
         coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
         wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
       })
+      setStatusText('Converting...'); setExportProgress(50)
+      ffmpeg.on('progress', ({ progress }) => {
+        setExportProgress(50 + Math.round(progress * 45))
+      })
       await ffmpeg.writeFile('input.webm', await fetchFile(webmBlob))
       await ffmpeg.exec(['-i', 'input.webm', '-c:v', 'libx264', '-preset', 'fast', 'output.mp4'])
+      setExportProgress(98)
       const fileData = await ffmpeg.readFile('output.mp4')
       const mp4Blob = new Blob([fileData as BlobPart], { type: 'video/mp4' })
       const url = URL.createObjectURL(mp4Blob)
       const a = document.createElement('a'); a.href = url; a.download = 'chartmaxxing.mp4'; a.click()
-      URL.revokeObjectURL(url); setIsRecording(false); setStatusText('')
+      URL.revokeObjectURL(url); setIsRecording(false); setStatusText(''); setExportProgress(0)
     }
     redraw(0)
     await new Promise(r => setTimeout(r, 400))
-    recorder.start(100)
+    recorder.start(100); setExportProgress(15)
     await new Promise(r => setTimeout(r, 500))
     await new Promise<void>(resolve => {
       let p = 0
@@ -273,6 +294,8 @@ function EditorBarInner() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif', fontSize: 14 }}>
+
+      {isRecording && <ExportOverlay status={statusText} progress={exportProgress} />}
 
       {showImport && (
         <DataImportModal chartType="bar" onImport={rows => setRows(rows as any)} onClose={() => setShowImport(false)} />
@@ -300,7 +323,7 @@ function EditorBarInner() {
           {playLoading ? '⏳ Loading...' : isPlaying ? '⏸ Pause' : `▶ Play${!isPro && playCount > 0 ? ` (${playsLeft} left)` : ''}`}
         </button>
         <button onClick={handleExport} disabled={isRecording} style={{ background: isPro ? BLUE : 'rgba(77,124,255,0.12)', border: `1px solid ${isPro ? BLUE : 'rgba(77,124,255,0.3)'}`, borderRadius: 7, padding: '6px 16px', color: isPro ? 'white' : BLUE, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: isRecording ? 0.5 : 1 }}>
-          {isRecording ? `⏺ ${statusText}` : isPro ? '⬇ Export MP4' : '⚡ Go Pro — $4.99/mo'}
+          {isRecording ? '⏺ Exporting...' : isPro ? '⬇ Export MP4' : '⚡ Go Pro — $4.99/mo'}
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4 }}>
           <span style={{ fontSize: 11, color: MUTED }}>{speed.toFixed(1)}×</span>
@@ -366,12 +389,10 @@ function EditorBarInner() {
                 <SectionLabel>Options</SectionLabel>
                 <Toggle label="Show values" value={showValues} onChange={setShowValues} />
                 <Toggle label="Glow" value={showGlow} onChange={setShowGlow} />
-                {showGlow && (
-                  <>
-                    <Slider label="Opacity" value={style.glowOpacity} onChange={v => updateStyle('glowOpacity', v)} min={0} max={1} step={0.05} />
-                    <Slider label="Blur" value={style.glowBlur} onChange={v => updateStyle('glowBlur', v)} min={0} max={80} step={5} />
-                  </>
-                )}
+                {showGlow && (<>
+                  <Slider label="Opacity" value={style.glowOpacity} onChange={v => updateStyle('glowOpacity', v)} min={0} max={1} step={0.05} />
+                  <Slider label="Blur" value={style.glowBlur} onChange={v => updateStyle('glowBlur', v)} min={0} max={80} step={5} />
+                </>)}
               </div>
             )}
             {rightTab === 'colors' && (

@@ -82,6 +82,22 @@ const inputBase: React.CSSProperties = {
   borderRadius: 8, padding: '9px 12px', color: TEXT, fontSize: 13, outline: 'none', boxSizing: 'border-box',
 }
 
+function ExportOverlay({ status, progress }: { status: string, progress: number }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: '#16161e', border: `1px solid ${BORDER}`, borderRadius: 16, width: 360, padding: 32, textAlign: 'center' }}>
+        <div style={{ fontSize: 36, marginBottom: 16 }}>⏺</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: TEXT, marginBottom: 8 }}>{status}</div>
+        <div style={{ fontSize: 13, color: MUTED, marginBottom: 20 }}>This may take up to 30 seconds</div>
+        <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 8, height: 8, overflow: 'hidden' }}>
+          <div style={{ height: '100%', borderRadius: 8, background: BLUE, width: `${progress}%`, transition: 'width 0.3s ease' }} />
+        </div>
+        <div style={{ fontSize: 12, color: MUTED, marginTop: 10 }}>{Math.round(progress)}%</div>
+      </div>
+    </div>
+  )
+}
+
 function EditorScatterInner() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rafRef = useRef<number | null>(null)
@@ -91,13 +107,8 @@ function EditorScatterInner() {
   const router = useRouter()
 
   const [rows, setRows] = useState<{ label: string, x: string, y: string }[]>([
-    { label: 'A', x: '2', y: '4' },
-    { label: 'B', x: '4', y: '7' },
-    { label: 'C', x: '5', y: '5' },
-    { label: 'D', x: '7', y: '9' },
-    { label: 'E', x: '8', y: '6' },
-    { label: 'F', x: '10', y: '11' },
-    { label: 'G', x: '12', y: '14' },
+    { label: 'A', x: '2', y: '4' }, { label: 'B', x: '4', y: '7' }, { label: 'C', x: '5', y: '5' },
+    { label: 'D', x: '7', y: '9' }, { label: 'E', x: '8', y: '6' }, { label: 'F', x: '10', y: '11' }, { label: 'G', x: '12', y: '14' },
   ])
   const [title, setTitle] = useState('Put your title here')
   const [subtitle, setSubtitle] = useState('Insert funny engaging subtitle')
@@ -109,6 +120,7 @@ function EditorScatterInner() {
   const [isRecording, setIsRecording] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [statusText, setStatusText] = useState('')
+  const [exportProgress, setExportProgress] = useState(0)
   const [isPro, setIsPro] = useState(false)
   const [rightTab, setRightTab] = useState<'design' | 'colors' | 'fonts'>('design')
   const [projectTitle, setProjectTitle] = useState('Untitled')
@@ -216,18 +228,17 @@ function EditorScatterInner() {
     if (!isPro) {
       const res = await fetch('/api/checkout', { method: 'POST' })
       const { url } = await res.json()
-      window.location.href = url
-      return
+      window.location.href = url; return
     }
     if (isRecording || !canvasRef.current) return
-    setIsRecording(true); setStatusText('Recording...')
+    setIsRecording(true); setStatusText('Recording...'); setExportProgress(5)
     const mimeType = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm'
     const stream = canvasRef.current.captureStream(60)
     const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 10_000_000 })
     const chunks: Blob[] = []
     recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
     recorder.onstop = async () => {
-      setStatusText('Converting...')
+      setStatusText('Loading converter...'); setExportProgress(30)
       const webmBlob = new Blob(chunks, { type: mimeType })
       const ffmpeg = new FFmpeg()
       const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
@@ -235,17 +246,22 @@ function EditorScatterInner() {
         coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
         wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
       })
+      setStatusText('Converting...'); setExportProgress(50)
+      ffmpeg.on('progress', ({ progress }) => {
+        setExportProgress(50 + Math.round(progress * 45))
+      })
       await ffmpeg.writeFile('input.webm', await fetchFile(webmBlob))
       await ffmpeg.exec(['-i', 'input.webm', '-c:v', 'libx264', '-preset', 'fast', 'output.mp4'])
+      setExportProgress(98)
       const fileData = await ffmpeg.readFile('output.mp4')
       const mp4Blob = new Blob([fileData as BlobPart], { type: 'video/mp4' })
       const url = URL.createObjectURL(mp4Blob)
       const a = document.createElement('a'); a.href = url; a.download = 'chartmaxxing.mp4'; a.click()
-      URL.revokeObjectURL(url); setIsRecording(false); setStatusText('')
+      URL.revokeObjectURL(url); setIsRecording(false); setStatusText(''); setExportProgress(0)
     }
     redraw(0)
     await new Promise(r => setTimeout(r, 400))
-    recorder.start(100)
+    recorder.start(100); setExportProgress(15)
     await new Promise(r => setTimeout(r, 500))
     await new Promise<void>(resolve => {
       let p = 0
@@ -271,13 +287,12 @@ function EditorScatterInner() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif', fontSize: 14 }}>
 
-{showImport && (
-  <DataImportModal
-    chartType="scatter"
-    onImport={rows => setRows(rows as any)}
-    onClose={() => setShowImport(false)}
-  />
-)}
+      {isRecording && <ExportOverlay status={statusText} progress={exportProgress} />}
+
+      {showImport && (
+        <DataImportModal chartType="scatter" onImport={rows => setRows(rows as any)} onClose={() => setShowImport(false)} />
+      )}
+
       {showUpgradePrompt && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowUpgradePrompt(false)}>
           <div style={{ background: '#16161e', border: `1px solid ${BORDER}`, borderRadius: 16, width: 400, padding: 36, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
@@ -300,7 +315,7 @@ function EditorScatterInner() {
           {playLoading ? '⏳ Loading...' : isPlaying ? '⏸ Pause' : `▶ Play${!isPro && playCount > 0 ? ` (${playsLeft} left)` : ''}`}
         </button>
         <button onClick={handleExport} disabled={isRecording} style={{ background: isPro ? BLUE : 'rgba(77,124,255,0.12)', border: `1px solid ${isPro ? BLUE : 'rgba(77,124,255,0.3)'}`, borderRadius: 7, padding: '6px 16px', color: isPro ? 'white' : BLUE, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: isRecording ? 0.5 : 1 }}>
-          {isRecording ? `⏺ ${statusText}` : isPro ? '⬇ Export MP4' : '⚡ Go Pro — $4.99/mo'}
+          {isRecording ? '⏺ Exporting...' : isPro ? '⬇ Export MP4' : '⚡ Go Pro — $4.99/mo'}
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4 }}>
           <span style={{ fontSize: 11, color: MUTED }}>{speed.toFixed(1)}×</span>
@@ -312,7 +327,7 @@ function EditorScatterInner() {
         <div style={{ width: 240, background: SURFACE, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderBottom: `1px solid ${BORDER}` }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: '#ccc' }}>Data</span>
-<button onClick={() => setShowImport(true)} style={{ marginLeft: 'auto', fontSize: 11, color: MUTED, background: 'none', border: `1px solid ${BORDER}`, borderRadius: 5, padding: '3px 8px', cursor: 'pointer' }}>+ Import</button>
+            <button onClick={() => setShowImport(true)} style={{ marginLeft: 'auto', fontSize: 11, color: MUTED, background: 'none', border: `1px solid ${BORDER}`, borderRadius: 5, padding: '3px 8px', cursor: 'pointer' }}>+ Import</button>
           </div>
           <div style={{ display: 'flex', padding: '6px 14px', borderBottom: `1px solid ${BORDER}`, fontSize: 11, color: '#3a3a50' }}>
             <span style={{ flex: 1 }}>Label</span>
@@ -372,12 +387,10 @@ function EditorScatterInner() {
                 <Toggle label="Line of best fit" value={style.showLOBF} onChange={v => updateStyle('showLOBF', v)} />
                 <Slider label="Dot size" value={style.dotSize} onChange={v => updateStyle('dotSize', v)} min={4} max={30} step={1} />
                 <Toggle label="Glow" value={style.glowOpacity > 0} onChange={v => updateStyle('glowOpacity', v ? 0.3 : 0)} />
-                {style.glowOpacity > 0 && (
-                  <>
-                    <Slider label="Opacity" value={style.glowOpacity} onChange={v => updateStyle('glowOpacity', v)} min={0} max={1} step={0.05} />
-                    <Slider label="Blur" value={style.glowBlur} onChange={v => updateStyle('glowBlur', v)} min={0} max={80} step={5} />
-                  </>
-                )}
+                {style.glowOpacity > 0 && (<>
+                  <Slider label="Opacity" value={style.glowOpacity} onChange={v => updateStyle('glowOpacity', v)} min={0} max={1} step={0.05} />
+                  <Slider label="Blur" value={style.glowBlur} onChange={v => updateStyle('glowBlur', v)} min={0} max={80} step={5} />
+                </>)}
               </div>
             )}
             {rightTab === 'colors' && (

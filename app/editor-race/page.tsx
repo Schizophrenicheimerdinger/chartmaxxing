@@ -20,8 +20,7 @@ function ColorRow({ label, value, onChange }: { label: string, value: string, on
       <span style={{ fontSize: 13, color: '#aaa' }}>{label}</span>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ fontSize: 11, color: '#444', fontFamily: 'monospace' }}>{value.startsWith('#') ? value.toUpperCase() : ''}</span>
-        <input type="color" value={value.startsWith('#') ? value : '#ffffff'} onChange={e => onChange(e.target.value)}
-          style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', background: 'transparent', padding: 2, flexShrink: 0 }} />
+        <input type="color" value={value.startsWith('#') ? value : '#ffffff'} onChange={e => onChange(e.target.value)} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', background: 'transparent', padding: 2, flexShrink: 0 }} />
       </div>
     </div>
   )
@@ -42,8 +41,7 @@ function NumField({ label, value, onChange, min, max }: { label: string, value: 
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
       <span style={{ fontSize: 13, color: '#aaa' }}>{label}</span>
-      <input type="number" value={value} min={min} max={max} onChange={e => onChange(parseInt(e.target.value) || min)}
-        style={{ width: 60, fontSize: 13, background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, borderRadius: 6, padding: '4px 8px', color: TEXT, textAlign: 'right' }} />
+      <input type="number" value={value} min={min} max={max} onChange={e => onChange(parseInt(e.target.value) || min)} style={{ width: 60, fontSize: 13, background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, borderRadius: 6, padding: '4px 8px', color: TEXT, textAlign: 'right' }} />
     </div>
   )
 }
@@ -59,6 +57,22 @@ function Divider() {
 const inputBase: React.CSSProperties = {
   width: '100%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`,
   borderRadius: 8, padding: '9px 12px', color: TEXT, fontSize: 13, outline: 'none', boxSizing: 'border-box',
+}
+
+function ExportOverlay({ status, progress }: { status: string, progress: number }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: '#16161e', border: `1px solid ${BORDER}`, borderRadius: 16, width: 360, padding: 32, textAlign: 'center' }}>
+        <div style={{ fontSize: 36, marginBottom: 16 }}>⏺</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: TEXT, marginBottom: 8 }}>{status}</div>
+        <div style={{ fontSize: 13, color: MUTED, marginBottom: 20 }}>This may take up to 30 seconds</div>
+        <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 8, height: 8, overflow: 'hidden' }}>
+          <div style={{ height: '100%', borderRadius: 8, background: BLUE, width: `${progress}%`, transition: 'width 0.3s ease' }} />
+        </div>
+        <div style={{ fontSize: 12, color: MUTED, marginTop: 10 }}>{Math.round(progress)}%</div>
+      </div>
+    </div>
+  )
 }
 
 function EditorRaceInner() {
@@ -86,6 +100,7 @@ function EditorRaceInner() {
   const [isRecording, setIsRecording] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [statusText, setStatusText] = useState('')
+  const [exportProgress, setExportProgress] = useState(0)
   const [isPro, setIsPro] = useState(false)
   const [rightTab, setRightTab] = useState<'design' | 'colors' | 'fonts'>('design')
   const [projectTitle, setProjectTitle] = useState('Untitled')
@@ -197,14 +212,14 @@ function EditorRaceInner() {
       window.location.href = url; return
     }
     if (isRecording || !canvasRef.current) return
-    setIsRecording(true); setStatusText('Recording...')
+    setIsRecording(true); setStatusText('Recording...'); setExportProgress(5)
     const mimeType = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm'
     const stream = canvasRef.current.captureStream(60)
     const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 10_000_000 })
     const chunks: Blob[] = []
     recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
     recorder.onstop = async () => {
-      setStatusText('Converting...')
+      setStatusText('Loading converter...'); setExportProgress(30)
       const webmBlob = new Blob(chunks, { type: mimeType })
       const ffmpeg = new FFmpeg()
       const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
@@ -212,17 +227,22 @@ function EditorRaceInner() {
         coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
         wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
       })
+      setStatusText('Converting...'); setExportProgress(50)
+      ffmpeg.on('progress', ({ progress }) => {
+        setExportProgress(50 + Math.round(progress * 45))
+      })
       await ffmpeg.writeFile('input.webm', await fetchFile(webmBlob))
       await ffmpeg.exec(['-i', 'input.webm', '-c:v', 'libx264', '-preset', 'fast', 'output.mp4'])
+      setExportProgress(98)
       const fileData = await ffmpeg.readFile('output.mp4')
       const mp4Blob = new Blob([fileData as BlobPart], { type: 'video/mp4' })
       const url = URL.createObjectURL(mp4Blob)
       const a = document.createElement('a'); a.href = url; a.download = 'chartmaxxing.mp4'; a.click()
-      URL.revokeObjectURL(url); setIsRecording(false); setStatusText('')
+      URL.revokeObjectURL(url); setIsRecording(false); setStatusText(''); setExportProgress(0)
     }
     redraw(0)
     await new Promise(r => setTimeout(r, 400))
-    recorder.start(100)
+    recorder.start(100); setExportProgress(15)
     await new Promise(r => setTimeout(r, 500))
     await new Promise<void>(resolve => {
       let p = 0
@@ -236,29 +256,21 @@ function EditorRaceInner() {
   }, [isPro, isRecording, redraw, speed])
 
   const updateCell = (rowIdx: number, colIdx: number, val: string) =>
-    setRows(prev => prev.map((r, i) => i === rowIdx ? {
-      ...r, values: r.values.map((v, j) => j === colIdx ? val : v)
-    } : r))
-
+    setRows(prev => prev.map((r, i) => i === rowIdx ? { ...r, values: r.values.map((v, j) => j === colIdx ? val : v) } : r))
   const updateRowLabel = (i: number, val: string) =>
     setRows(prev => prev.map((r, idx) => idx === i ? { ...r, label: val } : r))
-
   const addRow = () => setRows(prev => [...prev, { label: '', values: series.map(() => '') }])
   const removeRow = (i: number) => setRows(prev => prev.filter((_, idx) => idx !== i))
-
   const addSeries = () => {
     setSeries(prev => [...prev, `Series ${prev.length + 1}`])
     setRows(prev => prev.map(r => ({ ...r, values: [...r.values, ''] })))
   }
-
   const removeSeries = (i: number) => {
     setSeries(prev => prev.filter((_, idx) => idx !== i))
     setRows(prev => prev.map(r => ({ ...r, values: r.values.filter((_, idx) => idx !== i) })))
   }
-
   const updateSeriesName = (i: number, val: string) =>
     setSeries(prev => prev.map((s, idx) => idx === i ? val : s))
-
   const updateStyle = (key: keyof RaceChartStyle, val: string | number | string[]) =>
     setStyle(prev => ({ ...prev, [key]: val }))
 
@@ -268,17 +280,12 @@ function EditorRaceInner() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif', fontSize: 14 }}>
 
+      {isRecording && <ExportOverlay status={statusText} progress={exportProgress} />}
+
       {showImport && (
-        <DataImportModal
-          chartType="race"
-          onImport={(data: any) => {
-            if (data.series && data.rows) {
-              setSeries(data.series)
-              setRows(data.rows)
-            }
-          }}
-          onClose={() => setShowImport(false)}
-        />
+        <DataImportModal chartType="race" onImport={(data: any) => {
+          if (data.series && data.rows) { setSeries(data.series); setRows(data.rows) }
+        }} onClose={() => setShowImport(false)} />
       )}
 
       {showUpgradePrompt && (
@@ -293,7 +300,6 @@ function EditorRaceInner() {
         </div>
       )}
 
-      {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', padding: '0 16px', height: 50, borderBottom: `1px solid ${BORDER}`, flexShrink: 0, gap: 10 }}>
         <button onClick={() => router.push('/projects')} style={{ background: 'none', border: 'none', color: MUTED, fontSize: 13, cursor: 'pointer', padding: '0 8px 0 0' }}>← Projects</button>
         {projectId && <input value={projectTitle} onChange={e => setProjectTitle(e.target.value)} style={{ background: 'transparent', border: 'none', color: TEXT, fontSize: 14, fontWeight: 600, outline: 'none', width: 180 }} />}
@@ -304,7 +310,7 @@ function EditorRaceInner() {
           {playLoading ? '⏳ Loading...' : isPlaying ? '⏸ Pause' : `▶ Play${!isPro && playCount > 0 ? ` (${playsLeft} left)` : ''}`}
         </button>
         <button onClick={handleExport} disabled={isRecording} style={{ background: isPro ? BLUE : 'rgba(77,124,255,0.12)', border: `1px solid ${isPro ? BLUE : 'rgba(77,124,255,0.3)'}`, borderRadius: 7, padding: '6px 16px', color: isPro ? 'white' : BLUE, fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: isRecording ? 0.5 : 1 }}>
-          {isRecording ? `⏺ ${statusText}` : isPro ? '⬇ Export MP4' : '⚡ Go Pro — $4.99/mo'}
+          {isRecording ? '⏺ Exporting...' : isPro ? '⬇ Export MP4' : '⚡ Go Pro — $4.99/mo'}
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4 }}>
           <span style={{ fontSize: 11, color: MUTED }}>{speed.toFixed(1)}×</span>
@@ -313,16 +319,12 @@ function EditorRaceInner() {
       </div>
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-
-        {/* Data panel */}
         <div style={{ width: 320, background: SURFACE, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderBottom: `1px solid ${BORDER}`, gap: 6 }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: '#ccc' }}>Data</span>
             <button onClick={addSeries} style={{ fontSize: 11, color: MUTED, background: 'none', border: `1px solid ${BORDER}`, borderRadius: 5, padding: '3px 8px', cursor: 'pointer' }}>+ Series</button>
             <button onClick={() => setShowImport(true)} style={{ marginLeft: 'auto', fontSize: 11, color: MUTED, background: 'none', border: `1px solid ${BORDER}`, borderRadius: 5, padding: '3px 8px', cursor: 'pointer' }}>+ Import</button>
           </div>
-
-          {/* Scrollable table */}
           <div style={{ flex: 1, overflow: 'auto' }}>
             <table style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
               <thead>
@@ -331,12 +333,9 @@ function EditorRaceInner() {
                   {series.map((s, i) => (
                     <th key={i} style={{ padding: '4px 4px', background: SURFACE, position: 'sticky', top: 0, zIndex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <input value={s} onChange={e => updateSeriesName(i, e.target.value)}
-                          style={{ width: 70, background: 'transparent', border: 'none', color: '#4d7cff', fontSize: 11, fontWeight: 600, outline: 'none' }} />
-                        <button onClick={() => removeSeries(i)}
-                          style={{ background: 'none', border: 'none', color: '#333', cursor: 'pointer', fontSize: 10, padding: 0, lineHeight: 1 }}
-                          onMouseOver={e => (e.currentTarget.style.color = '#e55')}
-                          onMouseOut={e => (e.currentTarget.style.color = '#333')}>✕</button>
+                        <input value={s} onChange={e => updateSeriesName(i, e.target.value)} style={{ width: 70, background: 'transparent', border: 'none', color: '#4d7cff', fontSize: 11, fontWeight: 600, outline: 'none' }} />
+                        <button onClick={() => removeSeries(i)} style={{ background: 'none', border: 'none', color: '#333', cursor: 'pointer', fontSize: 10, padding: 0, lineHeight: 1 }}
+                          onMouseOver={e => (e.currentTarget.style.color = '#e55')} onMouseOut={e => (e.currentTarget.style.color = '#333')}>✕</button>
                       </div>
                     </th>
                   ))}
@@ -347,44 +346,32 @@ function EditorRaceInner() {
                 {rows.map((row, ri) => (
                   <tr key={ri} style={{ borderBottom: `1px solid ${BORDER}` }}>
                     <td style={{ padding: '0 8px' }}>
-                      <input value={row.label} onChange={e => updateRowLabel(ri, e.target.value)}
-                        style={{ width: 52, background: 'transparent', border: 'none', color: TEXT, fontSize: 12, outline: 'none' }}
-                        placeholder="Label" />
+                      <input value={row.label} onChange={e => updateRowLabel(ri, e.target.value)} style={{ width: 52, background: 'transparent', border: 'none', color: TEXT, fontSize: 12, outline: 'none' }} placeholder="Label" />
                     </td>
                     {series.map((_, ci) => (
                       <td key={ci} style={{ padding: '0 4px' }}>
-                        <input value={row.values[ci] ?? ''} onChange={e => updateCell(ri, ci, e.target.value)}
-                          style={{ width: 70, background: 'transparent', border: 'none', color: TEXT, fontSize: 12, outline: 'none', textAlign: 'right' }}
-                          placeholder="0" />
+                        <input value={row.values[ci] ?? ''} onChange={e => updateCell(ri, ci, e.target.value)} style={{ width: 70, background: 'transparent', border: 'none', color: TEXT, fontSize: 12, outline: 'none', textAlign: 'right' }} placeholder="0" />
                       </td>
                     ))}
                     <td>
-                      <button onClick={() => removeRow(ri)}
-                        style={{ width: 20, height: 20, background: 'none', border: 'none', color: '#333', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 3 }}
-                        onMouseOver={e => (e.currentTarget.style.color = '#e55')}
-                        onMouseOut={e => (e.currentTarget.style.color = '#333')}>✕</button>
+                      <button onClick={() => removeRow(ri)} style={{ width: 20, height: 20, background: 'none', border: 'none', color: '#333', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 3 }}
+                        onMouseOver={e => (e.currentTarget.style.color = '#e55')} onMouseOut={e => (e.currentTarget.style.color = '#333')}>✕</button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <button onClick={addRow} style={{ width: '100%', textAlign: 'left', padding: '8px 14px', fontSize: 12, color: MUTED, background: 'none', border: 'none', cursor: 'pointer' }}>
-              + Add row
-            </button>
+            <button onClick={addRow} style={{ width: '100%', textAlign: 'left', padding: '8px 14px', fontSize: 12, color: MUTED, background: 'none', border: 'none', cursor: 'pointer' }}>+ Add row</button>
           </div>
-          <div style={{ padding: '7px 14px', borderTop: `1px solid ${BORDER}`, fontSize: 11, color: '#333' }}>
-            {rows.length} frames · {series.length} series
-          </div>
+          <div style={{ padding: '7px 14px', borderTop: `1px solid ${BORDER}`, fontSize: 11, color: '#333' }}>{rows.length} frames · {series.length} series</div>
         </div>
 
-        {/* Canvas */}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#08080d', overflow: 'hidden' }}>
           <div style={{ borderRadius: 10, overflow: 'hidden', boxShadow: '0 0 0 1px rgba(255,255,255,0.05), 0 20px 50px rgba(0,0,0,0.6)', width: canvasDisplay.w, height: canvasDisplay.h }}>
             <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
           </div>
         </div>
 
-        {/* Right panel */}
         <div style={{ width: 264, background: SURFACE, borderLeft: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
           <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
             {(['design', 'colors', 'fonts'] as const).map(tab => (
@@ -408,7 +395,7 @@ function EditorRaceInner() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Chart title" style={inputBase} />
                   <input value={subtitle} onChange={e => setSubtitle(e.target.value)} placeholder="Subtitle" style={{ ...inputBase, color: '#aaa' }} />
-                  <input value={valueLabel} onChange={e => setValueLabel(e.target.value)} placeholder="Value label (e.g. users)" style={inputBase} />
+                  <input value={valueLabel} onChange={e => setValueLabel(e.target.value)} placeholder="Value label" style={inputBase} />
                 </div>
                 <Divider />
                 <SectionLabel>Options</SectionLabel>

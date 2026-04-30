@@ -21,6 +21,7 @@ interface Project {
 export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
+  const [creating, setCreating] = useState<string | null>(null)
   const [user, setUser] = useState<{ email: string } | null>(null)
   const router = useRouter()
 
@@ -44,6 +45,7 @@ export default function Projects() {
 }
 
 const createProject = async (chartType: string) => {
+  setCreating(chartType)
   const res = await fetch('/api/projects', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -118,7 +120,9 @@ const createProject = async (chartType: string) => {
                 onMouseOut={e => { e.currentTarget.style.borderColor = BORDER }}>
                 <div style={{ fontSize: 32, marginBottom: 12 }}>{ct.icon}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: TEXT }}>{ct.label}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: TEXT }}>
+  {creating === ct.key ? '⏳ Creating...' : ct.label}
+</span>
                   {ct.available && (
                     <span style={{ fontSize: 9, fontWeight: 700, background: BLUE, color: 'white', borderRadius: 4, padding: '2px 5px' }}>LIVE</span>
                   )}
