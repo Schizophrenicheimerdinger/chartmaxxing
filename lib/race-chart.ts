@@ -49,9 +49,11 @@ export const RACE_FONTS = [
   'IBM Plex Mono', 'Bebas Neue', 'Oswald', 'Anton', 'Archivo Black', 'Playfair Display',
 ]
 
-function lerp(a: number, b: number, t: number) { return a + (b - a) * t }
+// progress > 1 reserved for end pause + fade
+const PAUSE_END = 1.54   // 3s pause at 60fps default speed
+const FADE_END = 1.72    // 1s fade after that
 
-function easeInOut(t: number) { return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t }
+function lerp(a: number, b: number, t: number) { return a + (b - a) * t }
 
 function formatValue(v: number): string {
   if (v >= 1e9) return (v / 1e9).toFixed(1) + 'B'
@@ -59,6 +61,8 @@ function formatValue(v: number): string {
   if (v >= 1e3) return (v / 1e3).toFixed(1) + 'K'
   return Math.round(v).toString()
 }
+
+export const RACE_END = FADE_END
 
 export function drawRaceChart(
   canvas: HTMLCanvasElement,
@@ -86,6 +90,10 @@ export function drawRaceChart(
   const ctx = canvas.getContext('2d')!
   const s = dims.w / 1080
 
+  // Clamp chart progress to 0-1, handle end phase separately
+  const chartProgress = Math.min(progress, 1)
+  const isEndPhase = progress > 1
+
   ctx.clearRect(0, 0, dims.w, dims.h)
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
 
@@ -95,48 +103,37 @@ export function drawRaceChart(
 
   const n = frames.length
   const totalT = Math.max(n - 1, 1)
-  const rawT = progress * totalT
+  const rawT = chartProgress * totalT
   const frameIdx = Math.min(Math.floor(rawT), n - 2 < 0 ? 0 : n - 2)
-  const subT = n <= 1 ? 1 : easeInOut(Math.min(rawT - frameIdx, 1))
+  // Use linear t — no easeInOut — eliminates the pause/slowdown between frames
+  const subT = n <= 1 ? 1 : Math.min(rawT - frameIdx, 1)
 
   const frameA = frames[frameIdx]
   const frameB = frames[Math.min(frameIdx + 1, n - 1)]
 
-  // Interpolated values for each series
   const currentValues = series.map((_, i) => lerp(
     frameA.values[i] ?? 0,
     frameB.values[i] ?? 0,
     subT
   ))
 
-  // Compute rank order at A and B separately
-  const rankAtA: number[] = series.map((_, i) => i)
-    .sort((a, b) => (frameA.values[b] ?? 0) - (frameA.values[a] ?? 0))
-  const rankAtB: number[] = series.map((_, i) => i)
-    .sort((a, b) => (frameB.values[b] ?? 0) - (frameB.values[a] ?? 0))
+  const rankAtA = series.map((_, i) => i).sort((a, b) => (frameA.values[b] ?? 0) - (frameA.values[a] ?? 0))
+  const rankAtB = series.map((_, i) => i).sort((a, b) => (frameB.values[b] ?? 0) - (frameB.values[a] ?? 0))
 
-  // Map: seriesIndex → rank at A and B
   const rankOfA: Record<number, number> = {}
   const rankOfB: Record<number, number> = {}
-  rankAtA.forEach((seriesIdx, rank) => { rankOfA[seriesIdx] = rank })
-  rankAtB.forEach((seriesIdx, rank) => { rankOfB[seriesIdx] = rank })
+  rankAtA.forEach((si, rank) => { rankOfA[si] = rank })
+  rankAtB.forEach((si, rank) => { rankOfB[si] = rank })
 
-  // Lerped rank for each series (smooth position transition)
-  const lerpedRank = series.map((_, i) =>
-    lerp(rankOfA[i] ?? 0, rankOfB[i] ?? 0, subT)
-  )
+  const lerpedRank = series.map((_, i) => lerp(rankOfA[i] ?? 0, rankOfB[i] ?? 0, subT))
 
-  // Max value (lerped so scale doesn't jump)
-  const maxA = Math.max(...(frameA.values.filter(v => isFinite(v))), 1)
-  const maxB = Math.max(...(frameB.values.filter(v => isFinite(v))), 1)
+  const maxA = Math.max(...frameA.values.filter(v => isFinite(v)), 1)
+  const maxB = Math.max(...frameB.values.filter(v => isFinite(v)), 1)
   const maxValue = lerp(maxA, maxB, subT)
 
   const maxBars = Math.min(cs.maxBars, series.length)
-
-  const padTop = 160 * s
-  const padBottom = 110 * s
-  const padLeft = 260 * s
-  const padRight = 160 * s
+  const padTop = 160 * s, padBottom = 110 * s
+  const padLeft = 260 * s, padRight = 160 * s
   const chartH = dims.h - padTop - padBottom
   const chartW = dims.w - padLeft - padRight
   const barSlotH = chartH / maxBars
@@ -150,14 +147,11 @@ export function drawRaceChart(
   ctx.fillStyle = cs.timeColor
   ctx.fillText(timeLabel, dims.w - 40 * s, dims.h - 30 * s)
 
-  // Draw bars — sorted by lerped rank so rendering order is correct
-  const drawOrder = series
-    .map((_, i) => i)
-    .sort((a, b) => lerpedRank[b] - lerpedRank[a]) // draw bottom to top
+  // Draw bars
+  const drawOrder = series.map((_, i) => i).sort((a, b) => lerpedRank[b] - lerpedRank[a])
 
   drawOrder.forEach(i => {
     const rank = lerpedRank[i]
-    // Skip if out of visible range
     if (rank >= maxBars + 0.5 || rank < -0.5) return
 
     const barY = padTop + rank * barSlotH + barOffsetY
@@ -166,14 +160,9 @@ export function drawRaceChart(
     const r = Math.min(8 * s, barH / 2)
     const color = cs.barColors[i % cs.barColors.length]
 
-    // Fade out bars entering/leaving top N
-    const alpha = Math.min(1, Math.min(
-      maxBars - rank, // fade out at bottom
-      rank + 1         // fade in at top
-    ))
-    ctx.globalAlpha = Math.max(0, Math.min(1, alpha))
+    const alpha = Math.max(0, Math.min(1, Math.min(maxBars - rank, rank + 1)))
+    ctx.globalAlpha = alpha
 
-    // Bar shape
     ctx.beginPath()
     ctx.moveTo(barX, barY)
     ctx.lineTo(barX + barW - r, barY)
@@ -184,41 +173,31 @@ export function drawRaceChart(
     ctx.closePath()
 
     const grad = ctx.createLinearGradient(barX, 0, barX + barW, 0)
-    grad.addColorStop(0, color + 'aa')
-    grad.addColorStop(1, color)
-    ctx.fillStyle = grad
-    ctx.fill()
+    grad.addColorStop(0, color + 'aa'); grad.addColorStop(1, color)
+    ctx.fillStyle = grad; ctx.fill()
 
-    // Series label (left of bar)
     ctx.font = `600 ${cs.labelSize * s}px '${cs.labelFont}', sans-serif`
-    ctx.textAlign = 'right'
-    ctx.fillStyle = cs.labelColor
+    ctx.textAlign = 'right'; ctx.fillStyle = cs.labelColor
     ctx.fillText(series[i], barX - 14 * s, barY + barH / 2 + cs.labelSize * s * 0.36)
 
-    // Value label (right of bar)
     ctx.font = `500 ${cs.valueSize * s}px '${cs.labelFont}', sans-serif`
-    ctx.textAlign = 'left'
-    ctx.fillStyle = cs.valueColor
+    ctx.textAlign = 'left'; ctx.fillStyle = cs.valueColor
     ctx.fillText(formatValue(currentValues[i]), barX + barW + 12 * s, barY + barH / 2 + cs.valueSize * s * 0.36)
 
-    // Rank number inside bar
     if (barW > 55 * s) {
-      const displayRank = Math.round(rank) + 1
       ctx.font = `700 ${cs.labelSize * 0.75 * s}px '${cs.labelFont}', sans-serif`
-      ctx.textAlign = 'left'
-      ctx.fillStyle = 'rgba(0,0,0,0.3)'
-      ctx.fillText(`#${displayRank}`, barX + 12 * s, barY + barH / 2 + cs.labelSize * 0.75 * s * 0.36)
+      ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(0,0,0,0.3)'
+      ctx.fillText(`#${Math.round(rank) + 1}`, barX + 12 * s, barY + barH / 2 + cs.labelSize * 0.75 * s * 0.36)
     }
 
     ctx.globalAlpha = 1
   })
 
-  // Title & subtitle
   ctx.globalAlpha = 1
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
+
   ctx.font = `700 ${cs.titleSize * s}px '${cs.titleFont}', sans-serif`
-  ctx.textAlign = 'left'
-  ctx.fillStyle = cs.titleColor
+  ctx.textAlign = 'left'; ctx.fillStyle = cs.titleColor
   ctx.fillText(title, padLeft, 88 * s)
 
   if (subtitle) {
@@ -229,8 +208,16 @@ export function drawRaceChart(
 
   if (valueLabel) {
     ctx.font = `400 ${cs.labelSize * 0.8 * s}px '${cs.labelFont}', sans-serif`
-    ctx.textAlign = 'left'
-    ctx.fillStyle = 'rgba(255,255,255,0.2)'
+    ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(255,255,255,0.2)'
     ctx.fillText(valueLabel, padLeft, dims.h - 20 * s)
+  }
+
+  // Fade to black overlay for end phase
+  if (isEndPhase && progress > PAUSE_END) {
+    const fadeT = Math.min((progress - PAUSE_END) / (FADE_END - PAUSE_END), 1)
+    ctx.globalAlpha = fadeT
+    ctx.fillStyle = '#000000'
+    ctx.fillRect(0, 0, dims.w, dims.h)
+    ctx.globalAlpha = 1
   }
 }

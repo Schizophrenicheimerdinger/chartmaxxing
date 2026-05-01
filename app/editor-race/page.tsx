@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useMemo, useEffect, Suspense } from 'react'
-import { drawRaceChart, type RaceChartStyle, RACE_PRESETS, RACE_FONTS, DEFAULT_RACE_COLORS } from '@/lib/race-chart'
+import { drawRaceChart, type RaceChartStyle, RACE_PRESETS, RACE_FONTS, DEFAULT_RACE_COLORS, RACE_END } from '@/lib/race-chart'
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -194,7 +194,7 @@ function EditorRaceInner() {
     let p = 0
     const step = () => {
       p += 0.003 * speed
-      if (p >= 1) { redraw(1); setIsPlaying(false); return }
+if (p >= RACE_END) { redraw(RACE_END); setIsPlaying(false); return }
       redraw(p); rafRef.current = requestAnimationFrame(step)
     }
     rafRef.current = requestAnimationFrame(step)
