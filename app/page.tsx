@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 
 const BORDER = 'rgba(255,255,255,0.06)'
 const BLUE = '#4d7cff'
@@ -12,6 +13,14 @@ const MUTED = '#666680'
 
 export default function Home() {
   const [showHowTo, setShowHowTo] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => {
+      setIsLoggedIn(!!data.user)
+    })
+  }, [])
 
   return (
     <div style={{ minHeight: '100vh', background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif' }}>
@@ -35,12 +44,21 @@ export default function Home() {
           }}>
             How to use
           </button>
-          <Link href="/login" style={{
-            background: BLUE, color: 'white', fontWeight: 600, fontSize: 13,
-            padding: '7px 18px', borderRadius: 8, textDecoration: 'none'
-          }}>
-            Sign in
-          </Link>
+          {isLoggedIn ? (
+            <Link href="/projects" style={{
+              background: BLUE, color: 'white', fontWeight: 600, fontSize: 13,
+              padding: '7px 18px', borderRadius: 8, textDecoration: 'none'
+            }}>
+              My projects
+            </Link>
+          ) : (
+            <Link href="/login" style={{
+              background: BLUE, color: 'white', fontWeight: 600, fontSize: 13,
+              padding: '7px 18px', borderRadius: 8, textDecoration: 'none'
+            }}>
+              Sign in
+            </Link>
+          )}
         </div>
       </nav>
 
@@ -63,22 +81,10 @@ export default function Home() {
               }}>✕</button>
             </div>
             {[
-              {
-                n: '1', title: 'Enter your data',
-                desc: 'Type your labels and values directly into the data panel. Or use a simple AI prompt — just describe your data and the AI will format it ready to import automatically.'
-              },
-              {
-                n: '2', title: 'Design your chart',
-                desc: 'Pick colors, fonts, aspect ratio (9:16 for TikTok, 16:9 for YouTube, 1:1 for Instagram), and toggle options like area fill, glow, and dots.'
-              },
-              {
-                n: '3', title: 'Preview your animation',
-                desc: 'Hit Play to watch the chart animate. Adjust the speed slider to control how fast the line draws. Hit the reset button to replay from the start.'
-              },
-              {
-                n: '4', title: 'Export as MP4',
-                desc: 'Go Pro for $4.99/month to export a clean 1080p MP4 with no watermark. Download and post directly to TikTok, Instagram Reels, or YouTube Shorts.'
-              },
+              { n: '1', title: 'Enter your data', desc: 'Type your labels and values directly into the data panel. Or use a simple AI prompt — just describe your data and the AI will format it ready to import automatically.' },
+              { n: '2', title: 'Design your chart', desc: 'Pick colors, fonts, aspect ratio (9:16 for TikTok, 16:9 for YouTube, 1:1 for Instagram), and toggle options like area fill, glow, and dots.' },
+              { n: '3', title: 'Preview your animation', desc: 'Hit Play to watch the chart animate. Adjust the speed slider to control how fast the line draws. Hit the reset button to replay from the start.' },
+              { n: '4', title: 'Export as MP4', desc: 'Go Pro for $4.99/month to export a clean 1080p MP4 with no watermark. Download and post directly to TikTok, Instagram Reels, or YouTube Shorts.' },
             ].map(step => (
               <div key={step.n} style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
                 <div style={{
@@ -144,7 +150,6 @@ export default function Home() {
         ))}
       </div>
 
-      {/* Divider */}
       <div style={{ maxWidth: 800, margin: '0 auto', height: 1, background: BORDER }} />
 
       {/* How it works steps */}
@@ -153,7 +158,6 @@ export default function Home() {
           From data to viral video — in minutes
         </h2>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 0, maxWidth: 900, margin: '0 auto', position: 'relative' }}>
-          {/* connecting line */}
           <div style={{
             position: 'absolute', top: 22, left: '16%', right: '16%', height: 1,
             background: `linear-gradient(to right, ${BLUE}, rgba(77,124,255,0.2))`
@@ -177,7 +181,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Divider */}
       <div style={{ maxWidth: 800, margin: '0 auto', height: 1, background: BORDER }} />
 
       {/* Chart types */}
@@ -185,29 +188,22 @@ export default function Home() {
         <h2 style={{ fontSize: 36, fontWeight: 700, margin: '0 0 12px', color: TEXT }}>
           Multiple chart types
         </h2>
-        <p style={{ fontSize: 16, color: MUTED, margin: '0 0 56px' }}>
-          More chart types coming soon.
-        </p>
+        <p style={{ fontSize: 16, color: MUTED, margin: '0 0 56px' }}>More chart types coming soon.</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, maxWidth: 680, margin: '0 auto' }}>
           {[
             { name: 'Line chart', desc: 'Show trends over time. Perfect for growth stories.', available: true },
-            { name: 'Bar chart', desc: 'Compare categories side by side.', available: false },
-            { name: 'Pie chart', desc: 'Show proportions and percentages.', available: false },
+            { name: 'Bar chart', desc: 'Compare categories side by side.', available: true },
+            { name: 'Pie chart', desc: 'Show proportions and percentages.', available: true },
             { name: 'More coming', desc: 'New chart types added regularly.', available: false },
           ].map(chart => (
             <div key={chart.name} style={{
-              background: SURFACE,
-              border: `1px solid ${chart.available ? BLUE : BORDER}`,
-              borderRadius: 12, padding: '24px', textAlign: 'left',
-              opacity: chart.available ? 1 : 0.45,
+              background: SURFACE, border: `1px solid ${chart.available ? BLUE : BORDER}`,
+              borderRadius: 12, padding: '24px', textAlign: 'left', opacity: chart.available ? 1 : 0.45,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                 <span style={{ fontSize: 15, fontWeight: 700, color: TEXT }}>{chart.name}</span>
                 {chart.available && (
-                  <span style={{
-                    fontSize: 10, fontWeight: 700, background: BLUE, color: 'white',
-                    borderRadius: 4, padding: '2px 6px', letterSpacing: 0.5
-                  }}>LIVE</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, background: BLUE, color: 'white', borderRadius: 4, padding: '2px 6px', letterSpacing: 0.5 }}>LIVE</span>
                 )}
               </div>
               <p style={{ fontSize: 13, color: MUTED, margin: 0, lineHeight: 1.6 }}>{chart.desc}</p>
@@ -229,7 +225,6 @@ export default function Home() {
           Open the editor →
         </Link>
       </div>
-
     </div>
   )
 }

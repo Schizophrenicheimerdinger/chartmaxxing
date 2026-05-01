@@ -30,7 +30,7 @@ export default function Login() {
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setError(error.message)
-      else router.push('/editor')
+      else router.push('/projects')
     }
     setLoading(false)
   }
