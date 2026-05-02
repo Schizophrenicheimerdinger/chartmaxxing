@@ -122,7 +122,7 @@ export default function Home() {
           Animated chart videos
         </div>
         <h1 style={{
-          fontFamily: 'Syne, sans-serif', fontSize: isMobile ? 'min(42px, 10.5vw)' : 80, fontWeight: 800, color: TEXT,
+          fontFamily: 'Syne, sans-serif', fontSize: isMobile ? '7.5vw' : 80, fontWeight: 800, color: TEXT,
           margin: '0 0 20px', lineHeight: 1, letterSpacing: isMobile ? 0 : -3
         }}>
           Chartmaxxing
