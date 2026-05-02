@@ -239,6 +239,15 @@ export default function Home() {
           Open the editor →
         </Link>
       </div>
+
+      {/* Footer */}
+      <div style={{ borderTop: `1px solid ${BORDER}`, padding: '24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+        <span style={{ fontSize: 13, color: MUTED }}>© 2026 Chartmaxxing</span>
+        <div style={{ display: 'flex', gap: 24 }}>
+          <Link href="/privacy" style={{ fontSize: 13, color: MUTED, textDecoration: 'none' }}>Privacy</Link>
+          <Link href="/terms" style={{ fontSize: 13, color: MUTED, textDecoration: 'none' }}>Terms</Link>
+        </div>
+      </div>
     </div>
   )
 }
