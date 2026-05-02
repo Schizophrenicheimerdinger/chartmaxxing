@@ -24,7 +24,15 @@ export default function Projects() {
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState<string | null>(null)
   const [user, setUser] = useState<{ email: string } | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
   const router = useRouter()
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   useEffect(() => {
     fetch('/api/check-pro').then(r => r.json()).then(d => {
@@ -87,11 +95,11 @@ const createProject = async (chartType: string) => {
 ]
 
   return (
-    <div style={{ minHeight: '100vh', background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif', overflowX: 'hidden' }}>
 
       {/* Navbar */}
       <nav style={{
-        display: 'flex', alignItems: 'center', padding: '0 32px', height: 56,
+        display: 'flex', alignItems: 'center', padding: isMobile ? '0 16px' : '0 32px', height: 56,
         background: SURFACE, borderBottom: `1px solid ${BORDER}`, position: 'sticky', top: 0, zIndex: 100
       }}>
         <Link href="/" style={{ fontFamily: 'Syne, sans-serif', fontSize: 18, fontWeight: 800, color: TEXT, textDecoration: 'none' }}>
@@ -99,8 +107,8 @@ const createProject = async (chartType: string) => {
         </Link>
         <div style={{ flex: 1 }} />
         {user && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <span style={{ fontSize: 13, color: MUTED }}>{user.email}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {!isMobile && <span style={{ fontSize: 13, color: MUTED }}>{user.email}</span>}
             <button
               onClick={async () => { await createClient().auth.signOut(); router.push('/login') }}
               style={{
@@ -116,19 +124,19 @@ const createProject = async (chartType: string) => {
         )}
       </nav>
 
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '48px 32px' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '24px 16px' : '48px 32px' }}>
 
         {/* Create new */}
         <div style={{ marginBottom: 64 }}>
           <h2 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 6px' }}>Create new</h2>
           <p style={{ fontSize: 14, color: MUTED, margin: '0 0 24px' }}>Choose a chart type to get started</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 16 }}>
             {chartTypes.map(ct => (
               <button key={ct.key} onClick={() => ct.available && createProject(ct.key)}
                 disabled={!ct.available}
                 style={{
                   background: SURFACE, border: `1px solid ${ct.available ? BORDER : BORDER}`,
-                  borderRadius: 12, padding: '28px 20px', textAlign: 'left', cursor: ct.available ? 'pointer' : 'default',
+                  borderRadius: 12, padding: isMobile ? '16px 12px' : '28px 20px', textAlign: 'left', cursor: ct.available ? 'pointer' : 'default',
                   opacity: ct.available ? 1 : 0.4, transition: 'border-color 0.15s',
                   position: 'relative'
                 }}

@@ -6,6 +6,7 @@ import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
 import { useRouter, useSearchParams } from 'next/navigation'
 import DataImportModal from '@/components/DataImportModal'
+import MobileEditorShell from '@/components/MobileEditorShell'
 
 const BLUE = '#4d7cff'
 const BG = '#0c0c10'
@@ -130,6 +131,8 @@ function EditorScatterInner() {
   const [playLoading, setPlayLoading] = useState(false)
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+  const [mobileTab, setMobileTab] = useState<'data' | 'preview' | 'settings'>('data')
 
   useEffect(() => {
     fetch('/api/check-pro').then(r => r.json()).then(d => {
@@ -197,6 +200,13 @@ function EditorScatterInner() {
   }, [chartProps])
 
   useEffect(() => { redraw(1) }, [redraw])
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   const startAnimation = useCallback(async () => {
     if (isPlaying || playLoading) return
@@ -283,6 +293,135 @@ function EditorScatterInner() {
 
   const canvasDisplay = ratio === 'portrait' ? { w: 270, h: 480 } : ratio === 'landscape' ? { w: 580, h: 326 } : { w: 540, h: 540 }
   const playsLeft = Math.max(0, 5 - playCount)
+
+  if (isMobile) {
+    const upgradePrompt = showUpgradePrompt && (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 20px' }} onClick={() => setShowUpgradePrompt(false)}>
+        <div style={{ background: '#16161e', border: `1px solid ${BORDER}`, borderRadius: 16, width: '100%', maxWidth: 400, padding: 32, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>⚡</div>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: TEXT, margin: '0 0 10px' }}>Used your 5 free plays</h2>
+          <p style={{ fontSize: 13, color: MUTED, margin: '0 0 24px', lineHeight: 1.6 }}>Upgrade to Pro for unlimited plays and exports.</p>
+          <button onClick={handleExport} style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: BLUE, color: 'white', fontSize: 15, fontWeight: 700, cursor: 'pointer', marginBottom: 10 }}>Upgrade — $4.99/mo</button>
+          <button onClick={() => setShowUpgradePrompt(false)} style={{ width: '100%', padding: '10px', borderRadius: 10, border: `1px solid ${BORDER}`, background: 'transparent', color: MUTED, fontSize: 14, cursor: 'pointer' }}>Maybe later</button>
+        </div>
+      </div>
+    )
+
+    const dataPanel = (
+      <>
+        <div style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#ccc', flex: 1 }}>Data</span>
+          <button onClick={() => setShowImport(true)} style={{ fontSize: 11, color: MUTED, background: 'none', border: `1px solid ${BORDER}`, borderRadius: 5, padding: '3px 8px', cursor: 'pointer' }}>+ Import</button>
+        </div>
+        <div style={{ display: 'flex', padding: '6px 14px', borderBottom: `1px solid ${BORDER}`, fontSize: 11, color: '#3a3a50', flexShrink: 0 }}>
+          <span style={{ flex: 1 }}>Label</span>
+          <span style={{ width: 44, textAlign: 'right' }}>X</span>
+          <span style={{ width: 44, textAlign: 'right', marginLeft: 4 }}>Y</span>
+          <span style={{ width: 28 }} />
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {rows.map((row, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0 14px', height: 38, borderBottom: `1px solid ${BORDER}` }}>
+              <input value={row.label} onChange={e => updateRow(i, 'label', e.target.value)} style={{ flex: 1, background: 'transparent', border: 'none', color: TEXT, fontSize: 13, outline: 'none', minWidth: 0 }} placeholder="Label" />
+              <input value={row.x} onChange={e => updateRow(i, 'x', e.target.value)} style={{ width: 42, background: 'transparent', border: 'none', color: TEXT, fontSize: 13, outline: 'none', textAlign: 'right' }} placeholder="X" />
+              <input value={row.y} onChange={e => updateRow(i, 'y', e.target.value)} style={{ width: 42, background: 'transparent', border: 'none', color: TEXT, fontSize: 13, outline: 'none', textAlign: 'right', marginLeft: 4 }} placeholder="Y" />
+              <button onClick={() => removeRow(i)} style={{ width: 26, height: 26, marginLeft: 4, background: 'none', border: 'none', color: '#333', cursor: 'pointer', fontSize: 13, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4 }} onMouseOver={e => (e.currentTarget.style.color = '#e55')} onMouseOut={e => (e.currentTarget.style.color = '#333')}>✕</button>
+            </div>
+          ))}
+          <button onClick={addRow} style={{ width: '100%', textAlign: 'left', padding: '10px 14px', fontSize: 13, color: MUTED, background: 'none', border: 'none', cursor: 'pointer' }}>+ Add row</button>
+        </div>
+        <div style={{ padding: '8px 14px', borderTop: `1px solid ${BORDER}`, fontSize: 11, color: '#333', flexShrink: 0 }}>{rows.length} points</div>
+      </>
+    )
+
+    const settingsPanel = (
+      <>
+        {rightTab === 'design' && (
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: MUTED, marginTop: 20, marginBottom: 10 }}>Format</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+              {([{ key: 'portrait', label: '9:16', sub: 'TikTok' }, { key: 'square', label: '1:1', sub: 'Square' }, { key: 'landscape', label: '16:9', sub: 'YouTube' }] as const).map(r => (
+                <button key={r.key} onClick={() => setRatio(r.key)} style={{ padding: '8px 6px', borderRadius: 7, textAlign: 'center', border: `1px solid ${ratio === r.key ? BLUE : BORDER}`, background: ratio === r.key ? 'rgba(77,124,255,0.1)' : 'rgba(255,255,255,0.02)', cursor: 'pointer' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: ratio === r.key ? BLUE : TEXT }}>{r.label}</div>
+                  <div style={{ fontSize: 10, color: MUTED, marginTop: 2 }}>{r.sub}</div>
+                </button>
+              ))}
+            </div>
+            <div style={{ height: 1, background: BORDER, margin: '16px 0' }} />
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: MUTED, marginBottom: 10 }}>Text</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Chart title" style={inputBase} />
+              <input value={subtitle} onChange={e => setSubtitle(e.target.value)} placeholder="Subtitle" style={{ ...inputBase, color: '#aaa' }} />
+              <input value={xLabel} onChange={e => setXLabel(e.target.value)} placeholder="X-axis label" style={inputBase} />
+              <input value={yLabel} onChange={e => setYLabel(e.target.value)} placeholder="Y-axis label" style={inputBase} />
+            </div>
+            <div style={{ height: 1, background: BORDER, margin: '16px 0' }} />
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: MUTED, marginBottom: 10 }}>Options</div>
+            <Toggle label="Line of best fit" value={style.showLOBF} onChange={v => updateStyle('showLOBF', v)} />
+            <Slider label="Dot size" value={style.dotSize} onChange={v => updateStyle('dotSize', v)} min={4} max={30} step={1} />
+            <Toggle label="Glow" value={style.glowOpacity > 0} onChange={v => updateStyle('glowOpacity', v ? 0.3 : 0)} />
+            {style.glowOpacity > 0 && (<><Slider label="Opacity" value={style.glowOpacity} onChange={v => updateStyle('glowOpacity', v)} min={0} max={1} step={0.05} /><Slider label="Blur" value={style.glowBlur} onChange={v => updateStyle('glowBlur', v)} min={0} max={80} step={5} /></>)}
+          </div>
+        )}
+        {rightTab === 'colors' && (
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: MUTED, marginTop: 20, marginBottom: 10 }}>Background</div>
+            <ColorRow label="Top" value={style.bgColor} onChange={v => updateStyle('bgColor', v)} />
+            <ColorRow label="Bottom" value={style.bgColor2} onChange={v => updateStyle('bgColor2', v)} />
+            <div style={{ height: 1, background: BORDER, margin: '16px 0' }} />
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: MUTED, marginBottom: 10 }}>Chart</div>
+            <ColorRow label="Dots" value={style.dotColor} onChange={v => updateStyle('dotColor', v)} />
+            <ColorRow label="Best fit line" value={style.lobfColor} onChange={v => updateStyle('lobfColor', v)} />
+            <ColorRow label="Glow" value={style.glowColor} onChange={v => updateStyle('glowColor', v)} />
+            <div style={{ height: 1, background: BORDER, margin: '16px 0' }} />
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: MUTED, marginBottom: 10 }}>Text</div>
+            <ColorRow label="Title" value={style.titleColor} onChange={v => updateStyle('titleColor', v)} />
+            <ColorRow label="Subtitle" value={style.subtitleColor} onChange={v => updateStyle('subtitleColor', v)} />
+            <ColorRow label="Axis labels" value={style.labelColor} onChange={v => updateStyle('labelColor', v)} />
+            <ColorRow label="X label" value={style.xLabelColor} onChange={v => updateStyle('xLabelColor', v)} />
+            <ColorRow label="Y label" value={style.yLabelColor} onChange={v => updateStyle('yLabelColor', v)} />
+            <div style={{ height: 1, background: BORDER, margin: '16px 0' }} />
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: MUTED, marginBottom: 10 }}>Grid</div>
+            <ColorRow label="Axis lines" value={style.axisColor} onChange={v => updateStyle('axisColor', v)} />
+            <ColorRow label="Grid lines" value={style.gridColor} onChange={v => updateStyle('gridColor', v)} />
+          </div>
+        )}
+        {rightTab === 'fonts' && (
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: MUTED, marginTop: 20, marginBottom: 10 }}>Fonts</div>
+            <FontPicker label="Title" value={style.titleFont} onChange={v => updateStyle('titleFont', v)} />
+            <FontPicker label="Subtitle" value={style.subtitleFont} onChange={v => updateStyle('subtitleFont', v)} />
+            <FontPicker label="Labels" value={style.labelFont} onChange={v => updateStyle('labelFont', v)} />
+            <div style={{ height: 1, background: BORDER, margin: '16px 0' }} />
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', color: MUTED, marginBottom: 10 }}>Sizes</div>
+            <NumField label="Title" value={style.titleSize} onChange={v => updateStyle('titleSize', v)} min={20} max={120} />
+            <NumField label="Subtitle" value={style.subtitleSize} onChange={v => updateStyle('subtitleSize', v)} min={12} max={60} />
+            <NumField label="Labels" value={style.labelSize} onChange={v => updateStyle('labelSize', v)} min={10} max={40} />
+          </div>
+        )}
+      </>
+    )
+
+    return (
+      <>
+        {isRecording && <ExportOverlay status={statusText} progress={exportProgress} />}
+        {showImport && <DataImportModal chartType="scatter" onImport={rows => setRows(rows as any)} onClose={() => setShowImport(false)} />}
+        {upgradePrompt}
+        <MobileEditorShell
+          onBack={() => router.push('/projects')}
+          projectId={projectId} projectTitle={projectTitle} setProjectTitle={setProjectTitle} saveStatus={saveStatus}
+          mobileTab={mobileTab} setMobileTab={setMobileTab}
+          rightTab={rightTab} setRightTab={setRightTab}
+          isPlaying={isPlaying} playLoading={playLoading} isPro={isPro} playCount={playCount}
+          speed={speed} setSpeed={setSpeed} ratio={ratio} canvasRef={canvasRef}
+          onPlay={isPlaying ? stopAnimation : startAnimation}
+          onRestart={() => { redraw(0); startAnimation() }}
+          onExport={handleExport} isRecording={isRecording}
+          dataPanel={dataPanel} settingsPanel={settingsPanel}
+        />
+      </>
+    )
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif', fontSize: 14 }}>

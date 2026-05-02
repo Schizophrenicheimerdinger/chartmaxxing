@@ -14,6 +14,14 @@ const MUTED = '#666680'
 export default function Home() {
   const [showHowTo, setShowHowTo] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   useEffect(() => {
     const supabase = createClient()
@@ -23,12 +31,12 @@ export default function Home() {
   }, [])
 
   return (
-    <div style={{ minHeight: '100vh', background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif', overflowX: 'hidden' }}>
 
       {/* Navbar */}
       <nav style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-        display: 'flex', alignItems: 'center', padding: '0 32px', height: 56,
+        display: 'flex', alignItems: 'center', padding: isMobile ? '0 16px' : '0 32px', height: 56,
         background: 'rgba(10,10,15,0.85)', backdropFilter: 'blur(12px)',
         borderBottom: `1px solid ${BORDER}`
       }}>
@@ -71,7 +79,7 @@ export default function Home() {
         }} onClick={() => setShowHowTo(false)}>
           <div style={{
             background: '#16161e', border: `1px solid ${BORDER}`, borderRadius: 16,
-            width: 420, maxHeight: '80vh', overflowY: 'auto', padding: 28,
+            width: isMobile ? '92vw' : 420, maxHeight: '80vh', overflowY: 'auto', padding: isMobile ? 20 : 28,
             position: 'relative'
           }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
@@ -112,24 +120,26 @@ export default function Home() {
           Animated chart videos
         </div>
         <h1 style={{
-          fontFamily: 'Syne, sans-serif', fontSize: 80, fontWeight: 800, color: TEXT,
-          margin: '0 0 20px', lineHeight: 1, letterSpacing: -3
+          fontFamily: 'Syne, sans-serif', fontSize: isMobile ? 52 : 80, fontWeight: 800, color: TEXT,
+          margin: '0 0 20px', lineHeight: 1, letterSpacing: isMobile ? -1 : -3
         }}>
           Chartmaxxing
         </h1>
         <p style={{ fontSize: 20, color: MUTED, margin: '0 0 48px', maxWidth: 480, marginLeft: 'auto', marginRight: 'auto' }}>
           Turn your data into viral chart videos for TikTok, Instagram, and YouTube — in minutes.
         </p>
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
           <Link href="/projects" style={{
             background: BLUE, color: 'white', fontWeight: 700, fontSize: 16,
-            padding: '14px 36px', borderRadius: 10, textDecoration: 'none'
+            padding: '14px 36px', borderRadius: 10, textDecoration: 'none',
+            ...(isMobile ? { width: '100%', textAlign: 'center', boxSizing: 'border-box' as const } : {})
           }}>
             Open the editor →
           </Link>
           <button onClick={() => setShowHowTo(true)} style={{
             background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED,
-            fontWeight: 600, fontSize: 15, padding: '14px 28px', borderRadius: 10, cursor: 'pointer'
+            fontWeight: 600, fontSize: 15, padding: '14px 28px', borderRadius: 10, cursor: 'pointer',
+            ...(isMobile ? { width: '100%', boxSizing: 'border-box' as const } : {})
           }}>
             How it works
           </button>
@@ -137,7 +147,7 @@ export default function Home() {
       </div>
 
       {/* Stats */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 80, padding: '0 24px 100px' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: isMobile ? 32 : 80, padding: '0 24px 100px', flexWrap: 'wrap' }}>
         {[
           { val: '$4.99', sub: '/month' },
           { val: 'No watermark', sub: 'on exports' },
@@ -157,17 +167,17 @@ export default function Home() {
         <h2 style={{ fontSize: 36, fontWeight: 700, margin: '0 0 60px', color: TEXT }}>
           From data to viral video — in minutes
         </h2>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 0, maxWidth: 900, margin: '0 auto', position: 'relative' }}>
-          <div style={{
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'center', gap: isMobile ? 32 : 0, maxWidth: 900, margin: '0 auto', position: 'relative', alignItems: isMobile ? 'center' : 'flex-start' }}>
+          {!isMobile && <div style={{
             position: 'absolute', top: 22, left: '16%', right: '16%', height: 1,
             background: `linear-gradient(to right, ${BLUE}, rgba(77,124,255,0.2))`
-          }} />
+          }} />}
           {[
             { n: '1', title: 'Paste your data', desc: 'Type values directly, or use an AI prompt to generate and format your data automatically.' },
             { n: '2', title: 'Make it look great', desc: 'Customize colors, fonts, aspect ratio, and animation style to match your brand.' },
             { n: '3', title: 'Export & go viral', desc: 'Download your MP4 in seconds and post it anywhere — no watermark.' },
           ].map(step => (
-            <div key={step.n} style={{ flex: 1, padding: '0 24px', textAlign: 'center', position: 'relative' }}>
+            <div key={step.n} style={{ flex: 1, padding: isMobile ? '0' : '0 24px', textAlign: 'center', position: 'relative', width: isMobile ? '100%' : undefined, maxWidth: isMobile ? 320 : undefined }}>
               <div style={{
                 width: 44, height: 44, borderRadius: '50%', background: BLUE,
                 color: 'white', fontWeight: 700, fontSize: 16,
@@ -189,7 +199,7 @@ export default function Home() {
           Multiple chart types
         </h2>
         <p style={{ fontSize: 16, color: MUTED, margin: '0 0 56px' }}>More chart types coming soon.</p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, maxWidth: 680, margin: '0 auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, maxWidth: 680, margin: '0 auto' }}>
           {[
             { name: 'Line chart', desc: 'Show trends over time. Perfect for growth stories.', available: true },
             { name: 'Bar chart', desc: 'Compare categories side by side.', available: true },
@@ -214,7 +224,7 @@ export default function Home() {
 
       {/* CTA */}
       <div style={{ textAlign: 'center', padding: '60px 24px 120px' }}>
-        <h2 style={{ fontSize: 40, fontWeight: 800, fontFamily: 'Syne, sans-serif', margin: '0 0 20px', color: TEXT }}>
+        <h2 style={{ fontSize: isMobile ? 28 : 40, fontWeight: 800, fontFamily: 'Syne, sans-serif', margin: '0 0 20px', color: TEXT }}>
           Ready to go viral?
         </h2>
         <p style={{ color: MUTED, fontSize: 16, margin: '0 0 40px' }}>Start for free. Export with Pro.</p>
