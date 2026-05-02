@@ -44,25 +44,27 @@ export default function Home() {
           Chartmaxxing
         </span>
         <div style={{ flex: 1 }} />
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <button onClick={() => setShowHowTo(true)} style={{
-            background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER}`,
-            borderRadius: 8, padding: '7px 16px', color: MUTED, fontSize: 13,
-            cursor: 'pointer', fontWeight: 500
-          }}>
-            How to use
-          </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {!isMobile && (
+            <button onClick={() => setShowHowTo(true)} style={{
+              background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER}`,
+              borderRadius: 8, padding: '7px 16px', color: MUTED, fontSize: 13,
+              cursor: 'pointer', fontWeight: 500
+            }}>
+              How to use
+            </button>
+          )}
           {isLoggedIn ? (
             <Link href="/projects" style={{
               background: BLUE, color: 'white', fontWeight: 600, fontSize: 13,
-              padding: '7px 18px', borderRadius: 8, textDecoration: 'none'
+              padding: '7px 18px', borderRadius: 8, textDecoration: 'none', whiteSpace: 'nowrap'
             }}>
               My projects
             </Link>
           ) : (
             <Link href="/login" style={{
               background: BLUE, color: 'white', fontWeight: 600, fontSize: 13,
-              padding: '7px 18px', borderRadius: 8, textDecoration: 'none'
+              padding: '7px 18px', borderRadius: 8, textDecoration: 'none', whiteSpace: 'nowrap'
             }}>
               Sign in
             </Link>
@@ -90,8 +92,8 @@ export default function Home() {
             </div>
             {[
               { n: '1', title: 'Enter your data', desc: 'Type your labels and values directly into the data panel. Or use a simple AI prompt — just describe your data and the AI will format it ready to import automatically.' },
-              { n: '2', title: 'Design your chart', desc: 'Pick colors, fonts, aspect ratio (9:16 for TikTok, 16:9 for YouTube, 1:1 for Instagram), and toggle options like area fill, glow, and dots.' },
-              { n: '3', title: 'Preview your animation', desc: 'Hit Play to watch the chart animate. Adjust the speed slider to control how fast the line draws. Hit the reset button to replay from the start.' },
+              { n: '2', title: 'Design your chart', desc: 'Pick colors, fonts, and aspect ratio (9:16 for TikTok, 16:9 for YouTube, 1:1 for Instagram). Customize animation options to match your style.' },
+              { n: '3', title: 'Preview your animation', desc: 'Hit Play to watch the chart animate. Use the speed slider to control the pace. Hit the reset button to replay from the start.' },
               { n: '4', title: 'Export as MP4', desc: 'Go Pro for $4.99/month to export a clean 1080p MP4 with no watermark. Download and post directly to TikTok, Instagram Reels, or YouTube Shorts.' },
             ].map(step => (
               <div key={step.n} style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
@@ -120,8 +122,8 @@ export default function Home() {
           Animated chart videos
         </div>
         <h1 style={{
-          fontFamily: 'Syne, sans-serif', fontSize: isMobile ? 52 : 80, fontWeight: 800, color: TEXT,
-          margin: '0 0 20px', lineHeight: 1, letterSpacing: isMobile ? -1 : -3
+          fontFamily: 'Syne, sans-serif', fontSize: isMobile ? 'min(42px, 10.5vw)' : 80, fontWeight: 800, color: TEXT,
+          margin: '0 0 20px', lineHeight: 1, letterSpacing: isMobile ? 0 : -3
         }}>
           Chartmaxxing
         </h1>
@@ -198,13 +200,15 @@ export default function Home() {
         <h2 style={{ fontSize: 36, fontWeight: 700, margin: '0 0 12px', color: TEXT }}>
           Multiple chart types
         </h2>
-        <p style={{ fontSize: 16, color: MUTED, margin: '0 0 56px' }}>More chart types coming soon.</p>
+        <p style={{ fontSize: 16, color: MUTED, margin: '0 0 56px' }}>Five chart types, all live now.</p>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, maxWidth: 680, margin: '0 auto' }}>
           {[
-            { name: 'Line chart', desc: 'Show trends over time. Perfect for growth stories.', available: true },
-            { name: 'Bar chart', desc: 'Compare categories side by side.', available: true },
-            { name: 'Pie chart', desc: 'Show proportions and percentages.', available: true },
-            { name: 'More coming', desc: 'New chart types added regularly.', available: false },
+            { name: 'Line chart', desc: 'Show trends over time with animated draw-on effects. Perfect for growth stories.', available: true },
+            { name: 'Bar chart', desc: 'Compare categories side by side with smooth animated bars.', available: true },
+            { name: 'Pie chart', desc: 'Show proportions and percentages with a spinning reveal animation.', available: true },
+            { name: 'Scatter plot', desc: 'Spot correlations and distributions with animated dot placement.', available: true },
+            { name: 'Race bar', desc: 'Show rankings changing over time — perfect for historical comparisons.', available: true },
+            { name: 'More coming', desc: 'New chart types are added regularly.', available: false },
           ].map(chart => (
             <div key={chart.name} style={{
               background: SURFACE, border: `1px solid ${chart.available ? BLUE : BORDER}`,
