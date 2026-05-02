@@ -51,20 +51,32 @@ interface Props {
   onClose: () => void
 }
 
+const MAX_ROWS = 500
+
 function parseCSVStandard(raw: string): StandardRow[] {
-  return raw.split('\n').map(l => l.trim()).filter(l => l.length > 0).map(line => {
+  return raw.split('\n').map(l => l.trim()).filter(l => l.length > 0).slice(0, MAX_ROWS).map(line => {
     const i = line.lastIndexOf(',')
     if (i === -1) return null
-    return { label: line.slice(0, i).trim().replace(/^"|"$/g, ''), value: line.slice(i + 1).trim().replace(/^"|"$/g, '') }
+    const value = line.slice(i + 1).trim().replace(/^"|"$/g, '')
+    if (isNaN(Number(value)) || value === '') return null
+    return { label: line.slice(0, i).trim().replace(/^"|"$/g, ''), value }
   }).filter(Boolean) as StandardRow[]
 }
 
 function parseCSVScatter(raw: string): ScatterRow[] {
-  return raw.split('\n').map(l => l.trim()).filter(l => l.length > 0).map(line => {
+  return raw.split('\n').map(l => l.trim()).filter(l => l.length > 0).slice(0, MAX_ROWS).map(line => {
     const parts = line.split(',')
     if (parts.length < 2) return null
-    if (parts.length === 2) return { label: '', x: parts[0].trim().replace(/^"|"$/g, ''), y: parts[1].trim().replace(/^"|"$/g, '') }
-    return { label: parts[0].trim().replace(/^"|"$/g, ''), x: parts[1].trim().replace(/^"|"$/g, ''), y: parts[2].trim().replace(/^"|"$/g, '') }
+    if (parts.length === 2) {
+      const x = parts[0].trim().replace(/^"|"$/g, '')
+      const y = parts[1].trim().replace(/^"|"$/g, '')
+      if (isNaN(Number(x)) || isNaN(Number(y))) return null
+      return { label: '', x, y }
+    }
+    const x = parts[1].trim().replace(/^"|"$/g, '')
+    const y = parts[2].trim().replace(/^"|"$/g, '')
+    if (isNaN(Number(x)) || isNaN(Number(y))) return null
+    return { label: parts[0].trim().replace(/^"|"$/g, ''), x, y }
   }).filter(Boolean) as ScatterRow[]
 }
 
@@ -73,7 +85,7 @@ function parseCSVRace(raw: string): RaceImportData | null {
   if (lines.length < 2) return null
   const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''))
   const series = headers.slice(1)
-  const rows = lines.slice(1).map(line => {
+  const rows = lines.slice(1, MAX_ROWS + 1).map(line => {
     const parts = line.split(',').map(p => p.trim().replace(/^"|"$/g, ''))
     return { label: parts[0], values: series.map((_, i) => parts[i + 1] ?? '0') }
   })
@@ -166,7 +178,7 @@ export default function DataImportModal({ chartType, onImport, onClose }: Props)
                 : isScatter ? 'Each line: label,x,y or just x,y'
                 : 'Each line: label,value'}
             </p>
-            <textarea value={csvText} onChange={e => { setCsvText(e.target.value); setPreview(null); setError('') }}
+            <textarea value={csvText} onChange={e => { setCsvText(e.target.value.slice(0, 50000)); setPreview(null); setError('') }}
               placeholder={isRace ? 'Year,YouTube,Netflix\n2018,1800,1200\n2019,2000,1500' : isScatter ? 'Alice,2,4\nBob,5,9' : 'Mon,85\nTue,60'}
               style={textareaStyle} />
             {error && <div style={{ color: '#ff6b6b', fontSize: 13, marginTop: 8 }}>{error}</div>}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 
 const BLUE = '#4d7cff'
 const BG = '#0a0a0f'
@@ -97,7 +98,22 @@ const createProject = async (chartType: string) => {
           Chartmaxxing
         </Link>
         <div style={{ flex: 1 }} />
-        {user && <span style={{ fontSize: 13, color: MUTED }}>{user.email}</span>}
+        {user && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <span style={{ fontSize: 13, color: MUTED }}>{user.email}</span>
+            <button
+              onClick={async () => { await createClient().auth.signOut(); router.push('/login') }}
+              style={{
+                fontSize: 13, color: MUTED, background: 'none', border: `1px solid ${BORDER}`,
+                borderRadius: 6, padding: '4px 12px', cursor: 'pointer'
+              }}
+              onMouseOver={e => { e.currentTarget.style.color = TEXT; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
+              onMouseOut={e => { e.currentTarget.style.color = MUTED; e.currentTarget.style.borderColor = BORDER }}
+            >
+              Log out
+            </button>
+          </div>
+        )}
       </nav>
 
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '48px 32px' }}>

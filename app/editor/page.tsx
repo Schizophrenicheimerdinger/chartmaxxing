@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
-import { drawChart, type ChartStyle, PRESETS, FONTS } from '@/lib/chart'
+import { drawChart, type ChartStyle, type SeriesData, PRESETS, FONTS } from '@/lib/chart'
 import { FFmpeg } from '@ffmpeg/ffmpeg'
 import { fetchFile, toBlobURL } from '@ffmpeg/util'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -14,6 +14,26 @@ const SURFACE = '#111116'
 const BORDER = 'rgba(255,255,255,0.06)'
 const TEXT = '#e8e8f0'
 const MUTED = '#555568'
+
+const SERIES_COLORS = ['#4d7cff', '#ff6b6b', '#51cf66', '#ffd43b', '#cc5de8', '#74c0fc', '#ff922b', '#f06595']
+
+type SeriesItem = {
+  name: string
+  rows: { label: string, value: string }[]
+  lineColor: string
+  dotColor: string
+  tipColor: string
+  glowColor: string
+  shadowColor: string
+}
+
+function makeSeries(name: string, color: string, rows?: { label: string, value: string }[]): SeriesItem {
+  return {
+    name,
+    rows: rows ?? [],
+    lineColor: color, dotColor: color, tipColor: color, glowColor: color, shadowColor: '#000000',
+  }
+}
 
 function Toggle({ label, value, onChange }: { label: string, value: boolean, onChange: (v: boolean) => void }) {
   return (
@@ -107,10 +127,14 @@ function EditorInner() {
   const projectId = searchParams.get('project')
   const router = useRouter()
 
-  const [rows, setRows] = useState<{ label: string, value: string }[]>([
-    { label: 'Mon', value: '7' }, { label: 'Tue', value: '6' }, { label: 'Wed', value: '5' },
-    { label: 'Thu', value: '3' }, { label: 'Fri', value: '1' }, { label: 'Sat', value: '12' }, { label: 'Sun', value: '10' },
+  const [series, setSeries] = useState<SeriesItem[]>([
+    makeSeries('Line 1', SERIES_COLORS[0], [
+      { label: 'Mon', value: '7' }, { label: 'Tue', value: '6' }, { label: 'Wed', value: '5' },
+      { label: 'Thu', value: '3' }, { label: 'Fri', value: '1' }, { label: 'Sat', value: '12' }, { label: 'Sun', value: '10' },
+    ])
   ])
+  const [activeSeriesIdx, setActiveSeriesIdx] = useState(0)
+
   const [title, setTitle] = useState('Put your title here')
   const [subtitle, setSubtitle] = useState('Insert funny engaging subtitle')
   const [yLabel, setYLabel] = useState('hours of sleep')
@@ -154,7 +178,12 @@ function EditorInner() {
       setProjectTitle(project.title ?? 'Untitled')
       if (project.data) {
         const d = project.data
-        if (d.rows) setRows(d.rows)
+        if (d.series) {
+          setSeries(d.series)
+        } else if (d.rows) {
+          // backward compat: single series
+          setSeries([makeSeries('Line 1', SERIES_COLORS[0], d.rows)])
+        }
         if (d.title) setTitle(d.title)
         if (d.subtitle) setSubtitle(d.subtitle)
         if (d.yLabel) setYLabel(d.yLabel)
@@ -182,22 +211,27 @@ function EditorInner() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: projectTitle,
-        data: { rows, title, subtitle, yLabel },
+        data: { series, title, subtitle, yLabel },
         settings: { style, ratio, showDots, showValues, showAreaFill, showGlow, showShadow, speed }
       })
     }).then(() => setSaveStatus('saved'))
-  }, [projectId, loaded, projectTitle, rows, title, subtitle, yLabel, style, ratio, showDots, showValues, showAreaFill, showGlow, showShadow, speed])
+  }, [projectId, loaded, projectTitle, series, title, subtitle, yLabel, style, ratio, showDots, showValues, showAreaFill, showGlow, showShadow, speed])
 
   useEffect(() => {
     if (!loaded) return
     setSaveStatus('unsaved')
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(saveProject, 1500)
-  }, [rows, title, subtitle, yLabel, style, ratio, showDots, showValues, showAreaFill, showGlow, showShadow, speed, projectTitle])
+  }, [series, title, subtitle, yLabel, style, ratio, showDots, showValues, showAreaFill, showGlow, showShadow, speed, projectTitle])
 
-  const data = useMemo(() => rows
-    .map(r => ({ label: r.label, value: parseFloat(r.value) }))
-    .filter(d => !isNaN(d.value)), [rows])
+  const chartSeries = useMemo<SeriesData[]>(() => series.map(ser => ({
+    data: ser.rows.map(r => ({ label: r.label, value: parseFloat(r.value) })).filter(d => !isNaN(d.value)),
+    lineColor: ser.lineColor,
+    dotColor: ser.dotColor,
+    tipColor: ser.tipColor,
+    glowColor: ser.glowColor,
+    shadowColor: ser.shadowColor,
+  })), [series])
 
   const effectiveStyle = useMemo(() => ({
     ...style,
@@ -207,7 +241,7 @@ function EditorInner() {
     shadowBlur: showShadow ? style.shadowBlur : 0,
   }), [style, showGlow, showShadow])
 
-  const chartProps = { data, title, subtitle, yLabel, showDots, showValues, showAreaFill, ratio, style: effectiveStyle }
+  const chartProps = { series: chartSeries, title, subtitle, yLabel, showDots, showValues, showAreaFill, ratio, style: effectiveStyle }
 
   const redraw = useCallback((progress = 1) => {
     if (canvasRef.current) drawChart(canvasRef.current, progress, chartProps)
@@ -293,15 +327,41 @@ function EditorInner() {
     })
   }, [isPro, isRecording, redraw, speed])
 
-  const updateRow = (i: number, field: 'label' | 'value', val: string) =>
-    setRows(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r))
-  const addRow = () => setRows(prev => [...prev, { label: '', value: '' }])
-  const removeRow = (i: number) => setRows(prev => prev.filter((_, idx) => idx !== i))
+  const updateRow = (si: number, i: number, field: 'label' | 'value', val: string) =>
+    setSeries(prev => prev.map((ser, sidx) => sidx !== si ? ser : {
+      ...ser, rows: ser.rows.map((r, idx) => idx === i ? { ...r, [field]: val } : r)
+    }))
+
+  const addRow = (si: number) =>
+    setSeries(prev => prev.map((ser, sidx) => sidx !== si ? ser : { ...ser, rows: [...ser.rows, { label: '', value: '' }] }))
+
+  const removeRow = (si: number, i: number) =>
+    setSeries(prev => prev.map((ser, sidx) => sidx !== si ? ser : { ...ser, rows: ser.rows.filter((_, idx) => idx !== i) }))
+
+  const addSeries = () => {
+    const nextIdx = series.length
+    const color = SERIES_COLORS[nextIdx % SERIES_COLORS.length]
+    const baseRows = series[0]?.rows.map(r => ({ label: r.label, value: '' })) ?? []
+    setSeries(prev => [...prev, makeSeries(`Line ${nextIdx + 1}`, color, baseRows)])
+    setActiveSeriesIdx(nextIdx)
+  }
+
+  const removeSeries = (si: number) => {
+    if (series.length <= 1) return
+    setSeries(prev => prev.filter((_, idx) => idx !== si))
+    setActiveSeriesIdx(prev => Math.min(prev, series.length - 2))
+  }
+
+  const updateSeriesColor = (si: number, field: keyof Pick<SeriesItem, 'lineColor' | 'dotColor' | 'tipColor' | 'glowColor' | 'shadowColor'>, val: string) =>
+    setSeries(prev => prev.map((ser, idx) => idx !== si ? ser : { ...ser, [field]: val }))
+
   const updateStyle = (key: keyof ChartStyle, val: string | number) =>
     setStyle(prev => ({ ...prev, [key]: val }))
 
   const canvasDisplay = ratio === 'portrait' ? { w: 270, h: 480 } : ratio === 'landscape' ? { w: 580, h: 326 } : { w: 540, h: 540 }
   const playsLeft = Math.max(0, 5 - playCount)
+  const activeSeries = series[activeSeriesIdx] ?? series[0]
+  const activeIdx = series[activeSeriesIdx] ? activeSeriesIdx : 0
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif', fontSize: 14 }}>
@@ -309,7 +369,10 @@ function EditorInner() {
       {isRecording && <ExportOverlay status={statusText} progress={exportProgress} />}
 
       {showImport && (
-        <DataImportModal chartType="line" onImport={rows => setRows(rows as any)} onClose={() => setShowImport(false)} />
+        <DataImportModal chartType="line" onImport={rows => {
+          setSeries(prev => prev.map((ser, idx) => idx !== activeIdx ? ser : { ...ser, rows: rows as any }))
+          setShowImport(false)
+        }} onClose={() => setShowImport(false)} />
       )}
 
       {showUpgradePrompt && (
@@ -343,35 +406,87 @@ function EditorInner() {
       </div>
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+
+        {/* Left panel */}
         <div style={{ width: 240, background: SURFACE, borderRight: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', padding: '10px 14px', borderBottom: `1px solid ${BORDER}` }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#ccc' }}>Data</span>
-            <button onClick={() => setShowImport(true)} style={{ marginLeft: 'auto', fontSize: 11, color: MUTED, background: 'none', border: `1px solid ${BORDER}`, borderRadius: 5, padding: '3px 8px', cursor: 'pointer' }}>+ Import</button>
+
+          {/* Series tabs */}
+          <div style={{ display: 'flex', alignItems: 'stretch', borderBottom: `1px solid ${BORDER}`, overflowX: 'auto', flexShrink: 0 }}>
+            {series.map((ser, si) => (
+              <button
+                key={si}
+                onClick={() => setActiveSeriesIdx(si)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5, padding: '8px 10px',
+                  flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer',
+                  borderBottom: activeIdx === si ? `2px solid ${BLUE}` : '2px solid transparent',
+                  color: activeIdx === si ? TEXT : MUTED, fontSize: 12, fontWeight: activeIdx === si ? 600 : 400,
+                  position: 'relative',
+                }}
+              >
+                {/* Color dot — clicking opens color picker */}
+                <span style={{ position: 'relative', width: 10, height: 10, flexShrink: 0 }}>
+                  <span style={{ display: 'block', width: 10, height: 10, borderRadius: '50%', background: ser.lineColor }} />
+                  <input
+                    type="color"
+                    value={ser.lineColor.startsWith('#') ? ser.lineColor : '#4d7cff'}
+                    onChange={e => {
+                      const c = e.target.value
+                      setSeries(prev => prev.map((s, idx) => idx !== si ? s : { ...s, lineColor: c, dotColor: c, tipColor: c, glowColor: c }))
+                    }}
+                    onClick={e => e.stopPropagation()}
+                    style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%', padding: 0, border: 'none' }}
+                  />
+                </span>
+                {ser.name}
+              </button>
+            ))}
+            <button
+              onClick={addSeries}
+              style={{ padding: '8px 10px', background: 'none', border: 'none', cursor: 'pointer', color: MUTED, fontSize: 16, flexShrink: 0, display: 'flex', alignItems: 'center' }}
+              title="Add line"
+            >+</button>
           </div>
-          <div style={{ display: 'flex', padding: '6px 14px', borderBottom: `1px solid ${BORDER}`, fontSize: 11, color: '#3a3a50' }}>
+
+          {/* Import + header row */}
+          <div style={{ display: 'flex', alignItems: 'center', padding: '8px 14px', borderBottom: `1px solid ${BORDER}`, flexShrink: 0, gap: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#ccc', flex: 1 }}>Data</span>
+            {series.length > 1 && (
+              <button
+                onClick={() => removeSeries(activeIdx)}
+                style={{ fontSize: 11, color: '#e55', background: 'none', border: `1px solid rgba(229,85,85,0.25)`, borderRadius: 5, padding: '2px 7px', cursor: 'pointer' }}
+              >Remove</button>
+            )}
+            <button onClick={() => setShowImport(true)} style={{ fontSize: 11, color: MUTED, background: 'none', border: `1px solid ${BORDER}`, borderRadius: 5, padding: '3px 8px', cursor: 'pointer' }}>+ Import</button>
+          </div>
+
+          <div style={{ display: 'flex', padding: '6px 14px', borderBottom: `1px solid ${BORDER}`, fontSize: 11, color: '#3a3a50', flexShrink: 0 }}>
             <span style={{ flex: 1 }}>Label</span>
             <span>Value</span>
           </div>
+
           <div style={{ flex: 1, overflowY: 'auto' }}>
-            {rows.map((row, i) => (
+            {activeSeries.rows.map((row, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '0 14px', height: 34, borderBottom: `1px solid ${BORDER}` }}>
-                <input value={row.label} onChange={e => updateRow(i, 'label', e.target.value)} style={{ flex: 1, background: 'transparent', border: 'none', color: TEXT, fontSize: 13, outline: 'none', minWidth: 0 }} placeholder="Label" />
-                <input value={row.value} onChange={e => updateRow(i, 'value', e.target.value)} style={{ width: 52, background: 'transparent', border: 'none', color: TEXT, fontSize: 13, outline: 'none', textAlign: 'right' }} placeholder="0" />
-                <button onClick={() => removeRow(i)} style={{ width: 22, height: 22, marginLeft: 6, background: 'none', border: 'none', color: '#333', cursor: 'pointer', fontSize: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4 }}
+                <input value={row.label} onChange={e => updateRow(activeIdx, i, 'label', e.target.value)} style={{ flex: 1, background: 'transparent', border: 'none', color: TEXT, fontSize: 13, outline: 'none', minWidth: 0 }} placeholder="Label" />
+                <input value={row.value} onChange={e => updateRow(activeIdx, i, 'value', e.target.value)} style={{ width: 52, background: 'transparent', border: 'none', color: TEXT, fontSize: 13, outline: 'none', textAlign: 'right' }} placeholder="0" />
+                <button onClick={() => removeRow(activeIdx, i)} style={{ width: 22, height: 22, marginLeft: 6, background: 'none', border: 'none', color: '#333', cursor: 'pointer', fontSize: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4 }}
                   onMouseOver={e => (e.currentTarget.style.color = '#e55')} onMouseOut={e => (e.currentTarget.style.color = '#333')}>✕</button>
               </div>
             ))}
-            <button onClick={addRow} style={{ width: '100%', textAlign: 'left', padding: '8px 14px', fontSize: 12, color: MUTED, background: 'none', border: 'none', cursor: 'pointer' }}>+ Add row</button>
+            <button onClick={() => addRow(activeIdx)} style={{ width: '100%', textAlign: 'left', padding: '8px 14px', fontSize: 12, color: MUTED, background: 'none', border: 'none', cursor: 'pointer' }}>+ Add row</button>
           </div>
-          <div style={{ padding: '7px 14px', borderTop: `1px solid ${BORDER}`, fontSize: 11, color: '#333' }}>{rows.length} rows · 1 series</div>
+          <div style={{ padding: '7px 14px', borderTop: `1px solid ${BORDER}`, fontSize: 11, color: '#333', flexShrink: 0 }}>{activeSeries.rows.length} rows · {series.length} {series.length === 1 ? 'series' : 'series'}</div>
         </div>
 
+        {/* Canvas */}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#08080d', overflow: 'hidden' }}>
           <div style={{ borderRadius: 10, overflow: 'hidden', boxShadow: '0 0 0 1px rgba(255,255,255,0.05), 0 20px 50px rgba(0,0,0,0.6)', width: canvasDisplay.w, height: canvasDisplay.h }}>
             <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
           </div>
         </div>
 
+        {/* Right panel */}
         <div style={{ width: 264, background: SURFACE, borderLeft: `1px solid ${BORDER}`, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
           <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}`, flexShrink: 0 }}>
             {(['design', 'colors', 'fonts'] as const).map(tab => (
@@ -421,12 +536,12 @@ function EditorInner() {
                 <ColorRow label="Top" value={style.bgColor} onChange={v => updateStyle('bgColor', v)} />
                 <ColorRow label="Bottom" value={style.bgColor2} onChange={v => updateStyle('bgColor2', v)} />
                 <Divider />
-                <SectionLabel>Line & Dots</SectionLabel>
-                <ColorRow label="Line" value={style.lineColor} onChange={v => updateStyle('lineColor', v)} />
-                <ColorRow label="Dot" value={style.dotColor} onChange={v => updateStyle('dotColor', v)} />
-                <ColorRow label="Tip dot" value={style.tipColor ?? style.lineColor} onChange={v => updateStyle('tipColor', v)} />
-                <ColorRow label="Glow" value={style.glowColor} onChange={v => updateStyle('glowColor', v)} />
-                <ColorRow label="Shadow" value={style.shadowColor} onChange={v => updateStyle('shadowColor', v)} />
+                <SectionLabel>Line & Dots — {activeSeries.name}</SectionLabel>
+                <ColorRow label="Line" value={activeSeries.lineColor} onChange={v => updateSeriesColor(activeIdx, 'lineColor', v)} />
+                <ColorRow label="Dot" value={activeSeries.dotColor} onChange={v => updateSeriesColor(activeIdx, 'dotColor', v)} />
+                <ColorRow label="Tip dot" value={activeSeries.tipColor} onChange={v => updateSeriesColor(activeIdx, 'tipColor', v)} />
+                <ColorRow label="Glow" value={activeSeries.glowColor} onChange={v => updateSeriesColor(activeIdx, 'glowColor', v)} />
+                <ColorRow label="Shadow" value={activeSeries.shadowColor} onChange={v => updateSeriesColor(activeIdx, 'shadowColor', v)} />
                 <Divider />
                 <SectionLabel>Text</SectionLabel>
                 <ColorRow label="Title" value={style.titleColor} onChange={v => updateStyle('titleColor', v)} />

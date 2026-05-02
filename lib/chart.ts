@@ -3,6 +3,15 @@ export interface DataPoint {
   value: number
 }
 
+export interface SeriesData {
+  data: DataPoint[]
+  lineColor: string
+  dotColor: string
+  tipColor: string
+  glowColor: string
+  shadowColor: string
+}
+
 export interface ChartStyle {
   bgColor: string
   bgColor2: string
@@ -94,7 +103,7 @@ export function drawChart(
   canvas: HTMLCanvasElement,
   progress: number,
   props: {
-    data: DataPoint[]
+    series: SeriesData[]
     title: string
     subtitle: string
     yLabel: string
@@ -105,14 +114,14 @@ export function drawChart(
     style: ChartStyle
   }
 ) {
-  const { data, title, subtitle, yLabel, showDots, showValues, showAreaFill, ratio, style: cs } = props
-  if (!data.length) return
+  const { series, title, subtitle, yLabel, showDots, showValues, showAreaFill, ratio, style: cs } = props
+  if (!series.length || series.every(ser => ser.data.length === 0)) return
 
   const dims = ratio === 'portrait' ? { w: 1080, h: 1920 } : ratio === 'landscape' ? { w: 1920, h: 1080 } : { w: 1080, h: 1080 }
   if (canvas.width !== dims.w || canvas.height !== dims.h) { canvas.width = dims.w; canvas.height = dims.h }
 
   const ctx = canvas.getContext('2d')!
-  const s = dims.w / 1080
+  const sc = dims.w / 1080
 
   clearShadow(ctx)
   ctx.clearRect(0, 0, dims.w, dims.h)
@@ -120,13 +129,16 @@ export function drawChart(
   bgGrad.addColorStop(0, cs.bgColor); bgGrad.addColorStop(1, cs.bgColor2)
   ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, dims.w, dims.h)
 
-  const pad = { top: 190 * s, right: 80 * s, bottom: 150 * s, left: 110 * s }
+  const pad = { top: 190 * sc, right: 80 * sc, bottom: 150 * sc, left: 110 * sc }
   const cW = dims.w - pad.left - pad.right
   const cH = dims.h - pad.top - pad.bottom
-  const vals = data.map(d => d.value)
-  const maxV = Math.max(...vals), minV = Math.min(0, ...vals), range = maxV - minV || 1
-  const totalPoints = data.length
+
+  const allVals = series.flatMap(ser => ser.data.map(d => d.value))
+  const maxV = Math.max(...allVals), minV = Math.min(0, ...allVals), range = maxV - minV || 1
+
+  const totalPoints = Math.max(...series.map(ser => ser.data.length))
   const totalSpan = totalPoints - 1
+  const labelSeries = series.reduce((a, b) => a.data.length >= b.data.length ? a : b)
 
   const yS = (v: number) => pad.top + cH - ((v - minV) / range) * cH
 
@@ -135,27 +147,18 @@ export function drawChart(
   const full = Math.floor(animLen)
   const frac = animLen - full
 
-  // Phase 1: dot moves at constant speed across full width (each segment = cW/totalSpan)
-  // Phase 2: after all points revealed, compress everything to fit (last 25% of animation)
   const drawingDone = prog >= 1
-  const compressionPhaseStart = 0.75 // compression starts at 75% of animation
-
-  // How far through compression phase we are (0 to 1)
+  const compressionPhaseStart = 0.75
   const compressionT = prog < compressionPhaseStart
     ? 0
     : Math.min((prog - compressionPhaseStart) / (1 - compressionPhaseStart), 1)
-  const easedCompression = compressionT * compressionT * (3 - 2 * compressionT) // smoothstep
+  const easedCompression = compressionT * compressionT * (3 - 2 * compressionT)
 
-  // During drawing: each revealed point is spaced evenly at cW/totalSpan
-  // span that fills the screen = total points - 1, but during drawing we treat animLen as the span
-  // so dot always reaches right edge of chart only at progress=1
   const xS = (i: number) => {
     if (drawingDone || compressionT === 0) {
-      // Pure drawing phase — dot at right edge, each segment = cW/animLen
       const span = Math.max(animLen, 1)
       return pad.left + (i / span) * cW
     }
-    // Compression phase — lerp from drawing positions to final positions
     const span = Math.max(animLen, 1)
     const drawX = pad.left + (i / span) * cW
     const finalX = pad.left + (totalSpan > 0 ? (i / totalSpan) * cW : cW / 2)
@@ -165,15 +168,15 @@ export function drawChart(
   const xSFinal = (i: number) => pad.left + (totalSpan > 0 ? (i / totalSpan) * cW : cW / 2)
 
   // Grid
-  for (let i = 0; i <= 5; i++) {
-    const y = pad.top + (i / 5) * cH, v = maxV - (i / 5) * range
+  for (let gi = 0; gi <= 5; gi++) {
+    const y = pad.top + (gi / 5) * cH, v = maxV - (gi / 5) * range
     ctx.strokeStyle = cs.gridColor; ctx.lineWidth = 1; ctx.setLineDash([4, 10])
     ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + cW, y); ctx.stroke()
     ctx.setLineDash([])
     ctx.fillStyle = cs.labelColor
-    ctx.font = `${cs.labelSize * s}px '${cs.labelFont}', sans-serif`
+    ctx.font = `${cs.labelSize * sc}px '${cs.labelFont}', sans-serif`
     ctx.textAlign = 'right'
-    ctx.fillText(v % 1 === 0 ? String(Math.round(v)) : v.toFixed(1), pad.left - 10 * s, y + 6 * s)
+    ctx.fillText(v % 1 === 0 ? String(Math.round(v)) : v.toFixed(1), pad.left - 10 * sc, y + 6 * sc)
   }
 
   // Axes
@@ -183,115 +186,142 @@ export function drawChart(
   // X labels
   const isAnimating = progress < 1
   if (isAnimating) {
-    const currentLabel = full < data.length ? data[full].label : data[data.length - 1].label
+    const currentLabel = full < labelSeries.data.length ? labelSeries.data[full].label : labelSeries.data[labelSeries.data.length - 1].label
     ctx.fillStyle = cs.titleColor
-    ctx.font = `700 ${72 * s}px '${cs.labelFont}', sans-serif`
+    ctx.font = `700 ${72 * sc}px '${cs.labelFont}', sans-serif`
     ctx.textAlign = 'center'
-    ctx.fillText(currentLabel, dims.w / 2, pad.top + cH + 90 * s)
+    ctx.fillText(currentLabel, dims.w / 2, pad.top + cH + 90 * sc)
   } else {
-    data.forEach((d, i) => {
+    labelSeries.data.forEach((d, i) => {
       ctx.fillStyle = cs.labelColor
-      ctx.font = `${cs.labelSize * s}px '${cs.labelFont}', sans-serif`
+      ctx.font = `${cs.labelSize * sc}px '${cs.labelFont}', sans-serif`
       ctx.textAlign = 'center'
-      ctx.fillText(d.label, xSFinal(i), pad.top + cH + 34 * s)
+      ctx.fillText(d.label, xSFinal(i), pad.top + cH + 34 * sc)
     })
   }
 
   // Y label
-  ctx.save(); ctx.translate(30 * s, pad.top + cH / 2); ctx.rotate(-Math.PI / 2)
+  ctx.save(); ctx.translate(30 * sc, pad.top + cH / 2); ctx.rotate(-Math.PI / 2)
   ctx.fillStyle = cs.yLabelColor
-  ctx.font = `bold ${cs.labelSize * s}px '${cs.yLabelFont}', sans-serif`
+  ctx.font = `bold ${cs.labelSize * sc}px '${cs.yLabelFont}', sans-serif`
   ctx.textAlign = 'center'; ctx.fillText(yLabel, 0, 0); ctx.restore()
   clearShadow(ctx)
 
-  if (data.length < 2) return
+  // Build points for each series
+  const allPts: { x: number; y: number; idx: number; partial?: boolean }[][] = series.map(ser => {
+    if (ser.data.length < 2) return []
+    const serFull = Math.min(full, ser.data.length - 1)
+    const pts: { x: number; y: number; idx: number; partial?: boolean }[] = []
+    for (let i = 0; i <= serFull; i++) {
+      pts.push({ x: xS(i), y: yS(ser.data[i].value), idx: i })
+    }
+    if (serFull < ser.data.length - 1 && frac > 0 && serFull === full) {
+      pts.push({
+        x: xS(serFull) + frac * (xS(serFull + 1) - xS(serFull)),
+        y: yS(ser.data[serFull].value) + frac * (yS(ser.data[serFull + 1].value) - yS(ser.data[serFull].value)),
+        idx: -1, partial: true,
+      })
+    }
+    return pts
+  })
 
-  // Build points
-  const pts: { x: number; y: number; idx: number; partial?: boolean }[] = []
-  for (let i = 0; i <= full; i++) {
-    pts.push({ x: xS(i), y: yS(data[i].value), idx: i })
-  }
-  if (full < totalSpan && frac > 0) {
-    pts.push({
-      x: xS(full) + frac * (xS(full + 1) - xS(full)),
-      y: yS(data[full].value) + frac * (yS(data[full + 1].value) - yS(data[full].value)),
-      idx: -1, partial: true,
+  // Area fills
+  if (showAreaFill) {
+    series.forEach((ser, si) => {
+      const pts = allPts[si]
+      if (pts.length < 2) return
+      const last = pts[pts.length - 1]
+      const areaGrad = ctx.createLinearGradient(0, pad.top, 0, pad.top + cH)
+      areaGrad.addColorStop(0, hexAlpha(ser.lineColor, 0.2))
+      areaGrad.addColorStop(1, hexAlpha(ser.lineColor, 0.0))
+      ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
+      ctx.lineTo(last.x, pad.top + cH); ctx.lineTo(pad.left, pad.top + cH); ctx.closePath()
+      ctx.fillStyle = areaGrad; ctx.fill()
     })
   }
-  if (pts.length < 2) return
-  const last = pts[pts.length - 1]
 
-  clearShadow(ctx)
-
-  // Area fill
-  if (showAreaFill) {
-    const areaGrad = ctx.createLinearGradient(0, pad.top, 0, pad.top + cH)
-    areaGrad.addColorStop(0, hexAlpha(cs.lineColor, 0.2))
-    areaGrad.addColorStop(1, hexAlpha(cs.lineColor, 0.0))
-    ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
-    ctx.lineTo(last.x, pad.top + cH); ctx.lineTo(pad.left, pad.top + cH); ctx.closePath()
-    ctx.fillStyle = areaGrad; ctx.fill()
-  }
-
-  // Glow
-  if (cs.glowOpacity > 0) {
+  // Glows
+  series.forEach((ser, si) => {
+    const pts = allPts[si]
+    if (pts.length < 2 || cs.glowOpacity <= 0) return
     ctx.save()
     ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
-    ctx.strokeStyle = hexAlpha(cs.glowColor, cs.glowOpacity)
-    ctx.lineWidth = 14 * s; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
-    ctx.shadowColor = cs.glowColor; ctx.shadowBlur = cs.glowBlur * s
+    ctx.strokeStyle = hexAlpha(ser.glowColor, cs.glowOpacity)
+    ctx.lineWidth = 14 * sc; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
+    ctx.shadowColor = ser.glowColor; ctx.shadowBlur = cs.glowBlur * sc
     ctx.stroke(); ctx.restore()
-  }
+  })
 
   clearShadow(ctx)
 
-  // Line
-  ctx.save()
-  if (cs.shadowOpacity > 0) {
-    ctx.shadowColor = hexAlpha(cs.shadowColor, cs.shadowOpacity)
-    ctx.shadowBlur = cs.shadowBlur * s
-    ctx.shadowOffsetY = 4 * s
-  }
-  ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
-  ctx.strokeStyle = cs.lineColor; ctx.lineWidth = 3 * s; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
-  ctx.stroke(); ctx.restore()
+  // Lines
+  series.forEach((ser, si) => {
+    const pts = allPts[si]
+    if (pts.length < 2) return
+    ctx.save()
+    if (cs.shadowOpacity > 0) {
+      ctx.shadowColor = hexAlpha(ser.shadowColor, cs.shadowOpacity)
+      ctx.shadowBlur = cs.shadowBlur * sc
+      ctx.shadowOffsetY = 4 * sc
+    }
+    ctx.beginPath(); pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
+    ctx.strokeStyle = ser.lineColor; ctx.lineWidth = 3 * sc; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
+    ctx.stroke(); ctx.restore()
+    clearShadow(ctx)
+
+    // Tip circle
+    const last = pts[pts.length - 1]
+    const tipR = (cs.tipSize ?? 8) * sc
+    ctx.beginPath(); ctx.arc(last.x, last.y, tipR, 0, Math.PI * 2)
+    ctx.fillStyle = ser.tipColor ?? ser.lineColor
+    ctx.fill()
+  })
 
   clearShadow(ctx)
 
-  // Tip circle
-  const tipR = (cs.tipSize ?? 8) * s
-  ctx.beginPath()
-  ctx.arc(last.x, last.y, tipR, 0, Math.PI * 2)
-  ctx.fillStyle = cs.tipColor ?? cs.lineColor
-  ctx.fill()
-
-  // Dots & values
+  // Dots and values
   if (showDots) {
-    pts.filter(p => !p.partial).forEach(p => {
-      ctx.beginPath(); ctx.arc(p.x, p.y, 6 * s, 0, Math.PI * 2)
-      ctx.fillStyle = cs.dotColor; ctx.fill()
-      if (showValues && p.idx >= 0) {
-        const v = data[p.idx].value, label = v % 1 === 0 ? String(v) : v.toFixed(1)
-        ctx.fillStyle = cs.valueColor
-        ctx.font = `600 ${cs.valueSize * s}px '${cs.valueFont}', sans-serif`
-        ctx.textAlign = 'center'
-        ctx.fillText(label, p.x, p.y - 18 * s)
-      }
+    series.forEach((ser, si) => {
+      const pts = allPts[si]
+      pts.filter(p => !p.partial).forEach(p => {
+        ctx.beginPath(); ctx.arc(p.x, p.y, 6 * sc, 0, Math.PI * 2)
+        ctx.fillStyle = ser.dotColor; ctx.fill()
+      })
     })
+
+    if (showValues) {
+      for (let xi = 0; xi < totalPoints; xi++) {
+        let maxVal = -Infinity
+        let maxPt: { x: number; y: number } | null = null
+        series.forEach((ser, si) => {
+          if (xi >= ser.data.length) return
+          const pt = allPts[si].find(p => p.idx === xi)
+          if (!pt) return
+          if (ser.data[xi].value > maxVal) { maxVal = ser.data[xi].value; maxPt = pt }
+        })
+        if (maxPt) {
+          const label = maxVal % 1 === 0 ? String(maxVal) : maxVal.toFixed(1)
+          ctx.fillStyle = cs.valueColor
+          ctx.font = `600 ${cs.valueSize * sc}px '${cs.valueFont}', sans-serif`
+          ctx.textAlign = 'center'
+          ctx.fillText(label, (maxPt as { x: number; y: number }).x, (maxPt as { x: number; y: number }).y - 18 * sc)
+        }
+      }
+    }
   }
 
   clearShadow(ctx)
-  ctx.font = `700 ${cs.titleSize * s}px '${cs.titleFont}', sans-serif`
+  ctx.font = `700 ${cs.titleSize * sc}px '${cs.titleFont}', sans-serif`
   ctx.textAlign = 'center'
-  const titleLines = wrapText(ctx, title, dims.w - 80 * s)
-  const titleLineH = (cs.titleSize + 8) * s
+  const titleLines = wrapText(ctx, title, dims.w - 80 * sc)
+  const titleLineH = (cs.titleSize + 8) * sc
   const titleY = pad.top * 0.32
   ctx.fillStyle = cs.titleColor
   titleLines.forEach((line, i) => ctx.fillText(line, dims.w / 2, titleY + i * titleLineH))
 
   if (subtitle) {
-    ctx.font = `${cs.subtitleSize * s}px '${cs.subtitleFont}', sans-serif`
+    ctx.font = `${cs.subtitleSize * sc}px '${cs.subtitleFont}', sans-serif`
     ctx.fillStyle = cs.subtitleColor
-    ctx.fillText(subtitle, dims.w / 2, titleY + titleLines.length * titleLineH + 4 * s)
+    ctx.fillText(subtitle, dims.w / 2, titleY + titleLines.length * titleLineH + 4 * sc)
   }
 }
