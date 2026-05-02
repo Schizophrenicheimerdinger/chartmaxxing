@@ -68,7 +68,7 @@ export default function Privacy() {
 
         <Section title="Your rights">
           <p style={{ margin: '0 0 12px' }}>You can request access to, correction of, or deletion of your personal data at any time by emailing:</p>
-          <a href="mailto:support@chartmaxxing.com" style={{ color: BLUE }}>support@chartmaxxing.com</a>
+          <a href="mailto:schizophrenicheimerdinger@gmail.com" style={{ color: BLUE }}>schizophrenicheimerdinger@gmail.com</a>
         </Section>
 
         <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 32, marginTop: 16 }}>

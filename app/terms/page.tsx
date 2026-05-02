@@ -55,7 +55,7 @@ export default function Terms() {
         </Section>
 
         <Section title="Refunds">
-          <p style={{ margin: 0 }}>We offer a full refund within <strong style={{ color: TEXT }}>7 days</strong> of your first charge if you are not satisfied. After that, refunds are at our discretion. To request one, email <a href="mailto:support@chartmaxxing.com" style={{ color: BLUE }}>support@chartmaxxing.com</a>.</p>
+          <p style={{ margin: 0 }}>We offer a full refund within <strong style={{ color: TEXT }}>7 days</strong> of your first charge if you are not satisfied. After that, refunds are at our discretion. To request one, email <a href="mailto:schizophrenicheimerdinger@gmail.com" style={{ color: BLUE }}>schizophrenicheimerdinger@gmail.com</a>.</p>
         </Section>
 
         <Section title="Your content">
@@ -80,7 +80,7 @@ export default function Terms() {
         </Section>
 
         <Section title="Contact">
-          <p style={{ margin: 0 }}>Questions? Email us at <a href="mailto:support@chartmaxxing.com" style={{ color: BLUE }}>support@chartmaxxing.com</a>.</p>
+          <p style={{ margin: 0 }}>Questions? Email us at <a href="mailto:schizophrenicheimerdinger@gmail.com" style={{ color: BLUE }}>schizophrenicheimerdinger@gmail.com</a>.</p>
         </Section>
 
         <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 32, marginTop: 16 }}>
