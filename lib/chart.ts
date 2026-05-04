@@ -10,6 +10,7 @@ export interface SeriesData {
   tipColor: string
   glowColor: string
   shadowColor: string
+  tipImage?: HTMLImageElement | null
 }
 
 export interface ChartStyle {
@@ -142,7 +143,7 @@ export function drawChart(
 
   const yS = (v: number) => pad.top + cH - ((v - minV) / range) * cH
 
-  const prog = easeInOut(Math.min(progress, 1))
+  const prog = Math.min(progress, 1)
   const animLen = prog * totalSpan
   const full = Math.floor(animLen)
   const frac = animLen - full
@@ -272,9 +273,19 @@ export function drawChart(
     // Tip circle
     const last = pts[pts.length - 1]
     const tipR = (cs.tipSize ?? 8) * sc
-    ctx.beginPath(); ctx.arc(last.x, last.y, tipR, 0, Math.PI * 2)
-    ctx.fillStyle = ser.tipColor ?? ser.lineColor
-    ctx.fill()
+    if (ser.tipImage && ser.tipImage.complete && ser.tipImage.naturalWidth > 0) {
+      ctx.save()
+      ctx.beginPath()
+      ctx.arc(last.x, last.y, tipR, 0, Math.PI * 2)
+      ctx.clip()
+      ctx.drawImage(ser.tipImage, last.x - tipR, last.y - tipR, tipR * 2, tipR * 2)
+      ctx.restore()
+    } else {
+      ctx.beginPath()
+      ctx.arc(last.x, last.y, tipR, 0, Math.PI * 2)
+      ctx.fillStyle = ser.tipColor ?? ser.lineColor
+      ctx.fill()
+    }
   })
 
   clearShadow(ctx)

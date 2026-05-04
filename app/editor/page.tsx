@@ -26,6 +26,7 @@ type SeriesItem = {
   tipColor: string
   glowColor: string
   shadowColor: string
+  tipImageUrl?: string
 }
 
 function makeSeries(name: string, color: string, rows?: { label: string, value: string }[]): SeriesItem {
@@ -54,6 +55,28 @@ function ColorRow({ label, value, onChange }: { label: string, value: string, on
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ fontSize: 11, color: '#444', fontFamily: 'monospace' }}>{value.startsWith('#') ? value.toUpperCase() : ''}</span>
         <input type="color" value={value.startsWith('#') ? value : '#ffffff'} onChange={e => onChange(e.target.value)} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer', background: 'transparent', padding: 2, flexShrink: 0 }} />
+      </div>
+    </div>
+  )
+}
+
+function TipImageRow({ label, imageUrl, onChange }: { label: string, imageUrl?: string, onChange: (url: string | undefined) => void }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 0' }}>
+      <span style={{ fontSize: 13, color: '#aaa' }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {imageUrl && <img src={imageUrl} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }} />}
+        <label style={{ fontSize: 11, color: MUTED, cursor: 'pointer', border: `1px solid rgba(255,255,255,0.06)`, borderRadius: 5, padding: '3px 8px', display: 'inline-block', flexShrink: 0 }}>
+          {imageUrl ? 'Change' : 'Upload PNG'}
+          <input type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} onChange={e => {
+            const file = e.target.files?.[0]
+            if (!file) return
+            const reader = new FileReader()
+            reader.onload = ev => onChange(ev.target?.result as string)
+            reader.readAsDataURL(file)
+          }} />
+        </label>
+        {imageUrl && <button onClick={() => onChange(undefined)} style={{ fontSize: 12, color: '#e55', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}>✕</button>}
       </div>
     </div>
   )
@@ -162,6 +185,8 @@ function EditorInner() {
   const [showImport, setShowImport] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [mobileTab, setMobileTab] = useState<'data' | 'preview' | 'settings'>('data')
+  const tipImgCache = useRef<Map<string, HTMLImageElement>>(new Map())
+  const [tipImgVersion, setTipImgVersion] = useState(0)
 
   useEffect(() => {
     fetch('/api/check-pro').then(r => r.json()).then(d => {
@@ -234,7 +259,8 @@ function EditorInner() {
     tipColor: ser.tipColor,
     glowColor: ser.glowColor,
     shadowColor: ser.shadowColor,
-  })), [series])
+    tipImage: ser.tipImageUrl ? (tipImgCache.current.get(ser.tipImageUrl) ?? null) : null,
+  })), [series, tipImgVersion])
 
   const effectiveStyle = useMemo(() => ({
     ...style,
@@ -258,6 +284,19 @@ function EditorInner() {
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
   }, [])
+
+  useEffect(() => {
+    series.forEach(ser => {
+      if (ser.tipImageUrl && !tipImgCache.current.has(ser.tipImageUrl)) {
+        const img = new Image()
+        img.onload = () => {
+          tipImgCache.current.set(ser.tipImageUrl!, img)
+          setTipImgVersion(v => v + 1)
+        }
+        img.src = ser.tipImageUrl
+      }
+    })
+  }, [series])
 
   const startAnimation = useCallback(async () => {
     if (isPlaying || playLoading) return
@@ -365,6 +404,9 @@ function EditorInner() {
   const updateSeriesColor = (si: number, field: keyof Pick<SeriesItem, 'lineColor' | 'dotColor' | 'tipColor' | 'glowColor' | 'shadowColor'>, val: string) =>
     setSeries(prev => prev.map((ser, idx) => idx !== si ? ser : { ...ser, [field]: val }))
 
+  const updateSeriesTipImage = (si: number, url: string | undefined) =>
+    setSeries(prev => prev.map((ser, idx) => idx !== si ? ser : { ...ser, tipImageUrl: url }))
+
   const updateStyle = (key: keyof ChartStyle, val: string | number) =>
     setStyle(prev => ({ ...prev, [key]: val }))
 
@@ -464,6 +506,7 @@ function EditorInner() {
             <ColorRow label="Line" value={activeSeries.lineColor} onChange={v => updateSeriesColor(activeIdx, 'lineColor', v)} />
             <ColorRow label="Dot" value={activeSeries.dotColor} onChange={v => updateSeriesColor(activeIdx, 'dotColor', v)} />
             <ColorRow label="Tip dot" value={activeSeries.tipColor} onChange={v => updateSeriesColor(activeIdx, 'tipColor', v)} />
+            <TipImageRow label="Tip image" imageUrl={activeSeries.tipImageUrl} onChange={url => updateSeriesTipImage(activeIdx, url)} />
             <ColorRow label="Glow" value={activeSeries.glowColor} onChange={v => updateSeriesColor(activeIdx, 'glowColor', v)} />
             <ColorRow label="Shadow" value={activeSeries.shadowColor} onChange={v => updateSeriesColor(activeIdx, 'shadowColor', v)} />
             <div style={{ height: 1, background: BORDER, margin: '16px 0' }} />
@@ -696,6 +739,7 @@ function EditorInner() {
                 <ColorRow label="Line" value={activeSeries.lineColor} onChange={v => updateSeriesColor(activeIdx, 'lineColor', v)} />
                 <ColorRow label="Dot" value={activeSeries.dotColor} onChange={v => updateSeriesColor(activeIdx, 'dotColor', v)} />
                 <ColorRow label="Tip dot" value={activeSeries.tipColor} onChange={v => updateSeriesColor(activeIdx, 'tipColor', v)} />
+                <TipImageRow label="Tip image" imageUrl={activeSeries.tipImageUrl} onChange={url => updateSeriesTipImage(activeIdx, url)} />
                 <ColorRow label="Glow" value={activeSeries.glowColor} onChange={v => updateSeriesColor(activeIdx, 'glowColor', v)} />
                 <ColorRow label="Shadow" value={activeSeries.shadowColor} onChange={v => updateSeriesColor(activeIdx, 'shadowColor', v)} />
                 <Divider />
