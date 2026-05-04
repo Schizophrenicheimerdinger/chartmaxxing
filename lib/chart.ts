@@ -143,7 +143,7 @@ export function drawChart(
 
   const yS = (v: number) => pad.top + cH - ((v - minV) / range) * cH
 
-  const prog = Math.min(progress, 1)
+  const prog = easeInOut(Math.min(progress, 1))
   const animLen = prog * totalSpan
   const full = Math.floor(animLen)
   const frac = animLen - full
