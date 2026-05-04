@@ -280,6 +280,12 @@ export function drawChart(
       ctx.clip()
       ctx.drawImage(ser.tipImage, last.x - tipR, last.y - tipR, tipR * 2, tipR * 2)
       ctx.restore()
+      const ringWidth = Math.max(2 * sc, tipR * 0.18)
+      ctx.beginPath()
+      ctx.arc(last.x, last.y, tipR + ringWidth / 2, 0, Math.PI * 2)
+      ctx.strokeStyle = ser.tipColor ?? ser.lineColor
+      ctx.lineWidth = ringWidth
+      ctx.stroke()
     } else {
       ctx.beginPath()
       ctx.arc(last.x, last.y, tipR, 0, Math.PI * 2)
