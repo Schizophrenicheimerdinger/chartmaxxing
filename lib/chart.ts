@@ -300,7 +300,10 @@ export function drawChart(
   if (showDots) {
     series.forEach((ser, si) => {
       const pts = allPts[si]
+      const lastPt = pts[pts.length - 1]
+      const tipOnDataPoint = lastPt && !lastPt.partial
       pts.filter(p => !p.partial).forEach(p => {
+        if (ser.tipImage && tipOnDataPoint && p.idx === lastPt.idx) return
         ctx.beginPath(); ctx.arc(p.x, p.y, 6 * sc, 0, Math.PI * 2)
         ctx.fillStyle = ser.dotColor; ctx.fill()
       })
